@@ -1,10 +1,9 @@
 import { FileSystemAdapter, Notice, Plugin, type TFile } from "obsidian";
-import { capacity, computeGeometry } from "./geometry.ts";
+import { COLUMN_GAP_MM, capacity, computeGeometry } from "./geometry.ts";
 import { impose } from "./impose.ts";
 import { ExportModal, type ExportSettings } from "./modal.ts";
-import { electron, renderStrips } from "./render.ts";
+import { RenderedNote, electron } from "./render.ts";
 
-const COLUMN_GAP_MM = 2;
 const SMALL_FONT_PT = 6;
 
 const DEFAULT_SETTINGS: ExportSettings = {
@@ -26,23 +25,32 @@ export default class CheatsheetExporter extends Plugin {
       checkCallback: (checking) => {
         const file = this.app.workspace.getActiveFile();
         if (file?.extension !== "md") return false;
-        if (!checking) {
-          new ExportModal(this.app, this.settings, (settings) => {
-            this.settings = settings;
-            void this.saveData(settings);
-            void this.exportCheatsheet(file, settings);
-          }).open();
-        }
+        if (!checking) this.openDialog(file);
         return true;
       },
     });
   }
 
-  async exportCheatsheet(file: TFile, settings: ExportSettings): Promise<string | undefined> {
+  private openDialog(file: TFile) {
+    const note = RenderedNote.render(this.app, file);
+    new ExportModal(this.app, this.settings, note, (settings) => {
+      this.settings = settings;
+      void this.saveData(settings);
+      void this.exportCheatsheet(note, file, settings);
+    }).open();
+  }
+
+  private async exportCheatsheet(
+    pendingNote: Promise<RenderedNote>,
+    file: TFile,
+    settings: ExportSettings,
+  ): Promise<void> {
     const progress = new Notice("Exporting cheatsheet...", 0);
+    let note: RenderedNote | undefined;
     try {
       const geometry = computeGeometry({ ...settings, gapMm: COLUMN_GAP_MM });
-      const rendered = await renderStrips(this.app, file, geometry, settings.compact);
+      note = await pendingNote;
+      const rendered = await note.print(geometry, settings.compact);
       const { pdf, strips: used, sides } = await impose(rendered.pdf, geometry);
 
       const path = `${file.parent?.path === "/" ? "" : `${file.parent?.path}/`}${file.basename} - cheatsheet.pdf`;
@@ -61,13 +69,12 @@ export default class CheatsheetExporter extends Plugin {
       new Notice(`Cheatsheet saved: uses ${used} of ${limit} columns${fit}.${small}${cut}`, 8000);
       // Not awaited: a slow-starting viewer shouldn't hold up the export.
       void this.openInDefaultApp(path);
-      return path;
     } catch (error) {
       console.error("Cheatsheet export failed", error);
       new Notice(`Cheatsheet export failed: ${(error as Error).message}`, 8000);
-      return undefined;
     } finally {
       progress.hide();
+      note?.dispose();
     }
   }
 

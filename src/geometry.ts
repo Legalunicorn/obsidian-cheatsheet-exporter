@@ -5,6 +5,8 @@ export const A4 = { short: 210, long: 297 };
 /** Width every strip is rendered at, before being scaled down onto the sheet. */
 export const STRIP_WIDTH_MM = 210;
 
+export const COLUMN_GAP_MM = 2;
+
 export interface GeometryInput {
   columns: number;
   landscape: boolean;

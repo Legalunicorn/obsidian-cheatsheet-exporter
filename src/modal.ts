@@ -1,4 +1,14 @@
-import { Modal, Setting, type App } from "obsidian";
+import {
+  Modal,
+  Setting,
+  type App,
+  type ButtonComponent,
+  type DropdownComponent,
+  type TextComponent,
+} from "obsidian";
+import { COLUMN_GAP_MM, capacity, computeGeometry } from "./geometry.ts";
+import { MAX_COLUMNS, MIN_FONT_PT, largestFont, recommendLayout, type Measure } from "./recommend.ts";
+import type { RenderedNote } from "./render.ts";
 
 export interface ExportSettings {
   columns: number;
@@ -8,16 +18,28 @@ export interface ExportSettings {
   compact: boolean;
 }
 
-const MAX_PREVIEW_COLUMNS = 24;
-
 export class ExportModal extends Modal {
   private readonly values: ExportSettings;
+  private readonly pendingNote: Promise<RenderedNote>;
   private readonly onExport: (settings: ExportSettings) => void;
-  private preview!: HTMLElement;
+  private note: RenderedNote | undefined;
+  private exported = false;
 
-  constructor(app: App, initial: ExportSettings, onExport: (settings: ExportSettings) => void) {
+  private orientation!: DropdownComponent;
+  private columns!: DropdownComponent;
+  private font!: TextComponent;
+  private preview!: HTMLElement;
+  private fit!: Setting;
+
+  constructor(
+    app: App,
+    initial: ExportSettings,
+    pendingNote: Promise<RenderedNote>,
+    onExport: (settings: ExportSettings) => void,
+  ) {
     super(app);
-    this.values = { ...initial };
+    this.values = { ...initial, columns: Math.min(initial.columns, MAX_COLUMNS) };
+    this.pendingNote = pendingNote;
     this.onExport = onExport;
   }
 
@@ -25,20 +47,29 @@ export class ExportModal extends Modal {
     this.setTitle("Export cheatsheet");
 
     new Setting(this.contentEl).setName("Orientation").addDropdown((dropdown) => {
+      this.orientation = dropdown;
       dropdown.addOption("landscape", "Landscape");
       dropdown.addOption("portrait", "Portrait");
       dropdown.setValue(this.values.landscape ? "landscape" : "portrait");
       dropdown.onChange((value) => {
         this.values.landscape = value === "landscape";
-        this.updatePreview();
+        this.refresh();
       });
     });
 
-    this.addNumber("Columns per side", "columns", 1);
-    this.preview = this.contentEl.createDiv("cheatsheet-preview");
-    this.updatePreview();
+    new Setting(this.contentEl).setName("Columns per side").addDropdown((dropdown) => {
+      this.columns = dropdown;
+      for (let n = 1; n <= MAX_COLUMNS; n++) dropdown.addOption(String(n), String(n));
+      dropdown.setValue(String(this.values.columns));
+      dropdown.onChange((value) => {
+        this.values.columns = Number(value);
+        this.refresh();
+      });
+    });
 
-    this.addNumber("Printed font size (pt)", "printedFontPt", 0.5);
+    this.preview = this.contentEl.createDiv("cheatsheet-preview");
+
+    this.font = this.addNumber("Printed font size (pt)", "printedFontPt", 0.5);
     this.addNumber("Outer margin (mm)", "marginMm", 1);
 
     new Setting(this.contentEl)
@@ -46,7 +77,26 @@ export class ExportModal extends Modal {
       .setDesc("Remove the margins and padding added by your theme.")
       .addToggle((toggle) => {
         toggle.setValue(this.values.compact);
-        toggle.onChange((compact) => (this.values.compact = compact));
+        toggle.onChange((compact) => {
+          this.values.compact = compact;
+          this.refresh();
+        });
+      });
+
+    this.fit = new Setting(this.contentEl)
+      .setName("Fit")
+      .setDesc("Measuring your note...")
+      .addButton((button) => {
+        button.setButtonText("Auto recommend").setDisabled(true);
+        button.onClick(() => void this.applyRecommendation(button));
+        this.pendingNote.then(
+          (note) => {
+            this.note = note;
+            button.setDisabled(false);
+            this.refresh();
+          },
+          (error: Error) => this.fit.setDesc(`Could not measure this note: ${error.message}`),
+        );
       });
 
     new Setting(this.contentEl).addButton((button) =>
@@ -54,14 +104,19 @@ export class ExportModal extends Modal {
         .setButtonText("Export")
         .setCta()
         .onClick(() => {
+          this.exported = true;
           this.close();
           this.onExport(this.values);
         }),
     );
+
+    this.refresh();
   }
 
-  private addNumber(name: string, key: "columns" | "printedFontPt" | "marginMm", step: number) {
+  private addNumber(name: string, key: "printedFontPt" | "marginMm", step: number): TextComponent {
+    let component!: TextComponent;
     new Setting(this.contentEl).setName(name).addText((text) => {
+      component = text;
       text.inputEl.type = "number";
       text.inputEl.min = "0";
       text.inputEl.step = String(step);
@@ -69,20 +124,82 @@ export class ExportModal extends Modal {
       text.onChange((value) => {
         const parsed = Number(value);
         if (value !== "" && Number.isFinite(parsed) && parsed >= 0) this.values[key] = parsed;
-        this.updatePreview();
+        this.refresh();
       });
     });
+    return component;
   }
 
-  /** A small A4 sheet, cut into the chosen columns. */
-  private updatePreview() {
+  private refresh() {
     this.preview.toggleClass("is-landscape", this.values.landscape);
     this.preview.empty();
-    const columns = Math.min(Math.floor(this.values.columns), MAX_PREVIEW_COLUMNS);
-    for (let i = 0; i < columns; i++) this.preview.createDiv();
+    for (let i = 0; i < this.values.columns; i++) this.preview.createDiv();
+    if (this.note) this.fit.setDesc(this.describeFit(this.note));
+  }
+
+  private describeFit(note: RenderedNote): string {
+    const { columns, landscape, marginMm, printedFontPt, compact } = this.values;
+    if (printedFontPt <= 0) return "Enter a font size to see the fit.";
+    try {
+      return note.probe(compact, (measure) => {
+        const g = computeGeometry({ ...this.values, gapMm: COLUMN_GAP_MM });
+        const { strips, overflowing } = measure(g);
+        const sides = (strips / columns).toFixed(1);
+        const cut = overflowing > 0 ? ` ${overflowing} formulas or tables get cut off.` : "";
+        if (strips <= capacity(g)) return `Fits on one sheet: about ${sides} of 2 sides.${cut}`;
+        return `About ${sides} sides, more than one sheet. ${this.suggestion(measure, { columns, landscape, marginMm })}${cut}`;
+      });
+    } catch (error) {
+      return (error as Error).message;
+    }
+  }
+
+  private suggestion(measure: Measure, layout: Parameters<typeof largestFont>[1]): string {
+    const font = largestFont(measure, layout, { allowCutOff: true });
+    return font === null
+      ? `It won't fit with these columns, even at ${MIN_FONT_PT} pt.`
+      : `${font} pt would fit with these columns.`;
+  }
+
+  /** Fills in the options only. Exporting stays the user's click. */
+  private async applyRecommendation(button: ButtonComponent) {
+    if (!this.note) return;
+    const note = this.note;
+    const { marginMm, compact } = this.values;
+    button.setDisabled(true);
+    this.fit.setDesc("Working out the best layout...");
+    // Let that message appear before the measurements hold up the window.
+    await new Promise((resolve) => window.setTimeout(resolve, 50));
+
+    let best: ReturnType<typeof recommendLayout>;
+    try {
+      best = note.probe(compact, (measure) => recommendLayout(measure, marginMm));
+    } catch (error) {
+      this.fit.setDesc((error as Error).message);
+      return;
+    } finally {
+      button.setDisabled(false);
+    }
+    if (!best) {
+      this.fit.setDesc(`No layout fits this note on one sheet at ${MIN_FONT_PT} pt or larger.`);
+      return;
+    }
+    this.values.columns = best.columns;
+    this.values.landscape = best.landscape;
+    this.values.printedFontPt = best.printedFontPt;
+    this.orientation.setValue(best.landscape ? "landscape" : "portrait");
+    this.columns.setValue(String(best.columns));
+    this.font.setValue(String(best.printedFontPt));
+    this.refresh();
   }
 
   onClose() {
     this.contentEl.empty();
+    if (!this.exported) {
+      this.pendingNote.then(
+        (note) => note.dispose(),
+        () => undefined,
+      );
+    }
   }
 }
