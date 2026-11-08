@@ -1,4 +1,4 @@
-import { FileSystemAdapter, Notice, Plugin, type TFile } from "obsidian";
+import { FileSystemAdapter, Notice, Plugin, TFile } from "obsidian";
 import { COLUMN_GAP_MM, capacity, computeGeometry } from "./geometry.ts";
 import { impose } from "./impose.ts";
 import { ExportModal, type ExportSettings } from "./modal.ts";
@@ -29,6 +29,17 @@ export default class CheatsheetExporter extends Plugin {
         return true;
       },
     });
+    this.registerEvent(
+      this.app.workspace.on("file-menu", (menu, file) => {
+        if (!(file instanceof TFile) || file.extension !== "md") return;
+        menu.addItem((item) =>
+          item
+            .setTitle("Export as cheatsheet...")
+            .setIcon("file-down")
+            .onClick(() => this.openDialog(file)),
+        );
+      }),
+    );
   }
 
   private openDialog(file: TFile) {
