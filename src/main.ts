@@ -18,7 +18,8 @@ export default class CheatsheetExporter extends Plugin {
   settings: ExportSettings = DEFAULT_SETTINGS;
 
   async onload() {
-    this.settings = { ...DEFAULT_SETTINGS, ...(await this.loadData()) };
+    const saved = (await this.loadData()) as Partial<ExportSettings> | null;
+    this.settings = { ...DEFAULT_SETTINGS, ...saved };
     this.addCommand({
       id: "export-cheatsheet",
       name: "Export current note as cheatsheet",
