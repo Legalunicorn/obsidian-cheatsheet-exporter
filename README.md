@@ -12,7 +12,7 @@ Text flows down each column, then left to right, then onto the back of the sheet
 
 ## Use
 
-Run **Export current note as cheatsheet** from the command palette, choose a layout and printed font size, then export. The PDF is saved next to the note, and a notice says how many columns it used. If the note doesn't fit on one sheet, everything is still exported and the notice warns you.
+Run **Export current note as cheatsheet** from the command palette, choose a layout and printed font size, then export. The PDF is saved next to the note and opens in your default PDF app, and a notice says how many columns it used. If the note doesn't fit on one sheet, everything is still exported and the notice says how many sides it needs.
 
 Print at **actual size**, not "fit to page". Choose double-sided printing that flips on the short edge for landscape layouts and the long edge for portrait layouts.
 

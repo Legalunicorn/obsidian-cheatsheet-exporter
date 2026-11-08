@@ -1,8 +1,8 @@
-import { Notice, Plugin, type TFile } from "obsidian";
+import { FileSystemAdapter, Notice, Plugin, type TFile } from "obsidian";
 import { capacity, computeGeometry } from "./geometry.ts";
 import { impose } from "./impose.ts";
 import { ExportModal, type ExportSettings } from "./modal.ts";
-import { renderStrips } from "./render.ts";
+import { electron, renderStrips } from "./render.ts";
 
 const COLUMN_GAP_MM = 2;
 
@@ -53,6 +53,7 @@ export default class CheatsheetExporter extends Plugin {
           : `Cheatsheet saved: uses ${used} of ${limit} columns.`,
         8000,
       );
+      await this.openInDefaultApp(path);
       return path;
     } catch (error) {
       console.error("Cheatsheet export failed", error);
@@ -61,6 +62,13 @@ export default class CheatsheetExporter extends Plugin {
     } finally {
       progress.hide();
     }
+  }
+
+  private async openInDefaultApp(path: string): Promise<void> {
+    const adapter = this.app.vault.adapter;
+    if (!(adapter instanceof FileSystemAdapter)) return;
+    const error = await electron().remote.shell.openPath(adapter.getFullPath(path));
+    if (error) new Notice(`Saved, but could not open the PDF: ${error}`, 8000);
   }
 }
 

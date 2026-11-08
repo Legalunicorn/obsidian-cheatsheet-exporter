@@ -19,7 +19,15 @@ interface ElectronApi {
     getCurrentWebContents(): {
       printToPDF(options: object): Promise<Uint8Array>;
     };
+    shell: {
+      /** Resolves to an error message, or "" on success. */
+      openPath(path: string): Promise<string>;
+    };
   };
+}
+
+export function electron(): ElectronApi {
+  return (window as unknown as { require(m: "electron"): ElectronApi }).require("electron");
 }
 
 /** Renders the note and prints it to a PDF with one strip per page. */
@@ -44,8 +52,7 @@ export async function renderStrips(
     await waitUntilSettled(view);
     await finishRenderMath();
 
-    const electron = (window as unknown as { require(m: "electron"): ElectronApi }).require("electron");
-    return await electron.remote.getCurrentWebContents().printToPDF({
+    return await electron().remote.getCurrentWebContents().printToPDF({
       pageSize: {
         width: g.stripWidth / MM_PER_INCH,
         height: g.stripHeight / MM_PER_INCH,
