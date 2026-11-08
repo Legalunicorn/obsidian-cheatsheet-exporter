@@ -49,7 +49,7 @@ export default class CheatsheetExporter extends Plugin {
       const limit = capacity(geometry);
       new Notice(
         used > limit
-          ? `Over the limit: uses ${used} of ${limit} columns (${sides} sides). Reduce the font size or content.`
+          ? `Cheatsheet saved: uses ${used} of ${limit} columns, so it needs ${sides} sides.`
           : `Cheatsheet saved: uses ${used} of ${limit} columns.`,
         8000,
       );

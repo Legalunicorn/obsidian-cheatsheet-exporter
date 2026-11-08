@@ -12,13 +12,7 @@ const MM_PER_INCH = 25.4;
 const QUIET_MS = 400;
 const SETTLE_TIMEOUT_MS = 15000;
 
-/** Obsidian resolves the derived sizes on <body>, so each one has to be set here too. */
-const FONT_SIZE_VARIABLES = [
-  "--font-text-size",
-  "--font-preferred-size",
-  "--table-text-size",
-  "--table-header-size",
-];
+const FONT_SIZE_VARIABLE = "--font-text-size";
 
 interface ElectronApi {
   remote: {
@@ -35,19 +29,11 @@ export async function renderStrips(
   g: Geometry,
   compact: boolean,
 ): Promise<Uint8Array> {
-  // Paper is white even in dark mode, as in Obsidian's own export. Colours resolve on <body>,
-  // so the class has to change there for the length of the export.
-  const wasDark = document.body.hasClass("theme-dark");
-  document.body.removeClass("theme-dark");
-  document.body.addClass("theme-light");
-
+  const restoreBody = applyBodyOverrides(g.sourceFontPt);
   const root = document.body.createDiv("print cheatsheet-export");
   root.toggleClass("cheatsheet-compact", compact);
   root.style.setProperty("--cheatsheet-strip-width", `${g.stripWidth}mm`);
   root.style.setProperty("--cheatsheet-strip-height", `${g.stripHeight}mm`);
-  for (const variable of FONT_SIZE_VARIABLES) {
-    root.style.setProperty(variable, `${g.sourceFontPt}pt`);
-  }
   const view = root.createDiv("markdown-preview-view markdown-rendered");
 
   const component = new Component();
@@ -70,11 +56,34 @@ export async function renderStrips(
   } finally {
     component.unload();
     root.remove();
-    if (wasDark) {
-      document.body.removeClass("theme-light");
-      document.body.addClass("theme-dark");
-    }
+    restoreBody();
   }
+}
+
+/**
+ * Themes derive colours and table sizes on <body>, and some size headings in rem,
+ * so the overrides have to go on the page itself for the length of the export.
+ * Paper is white even in dark mode, as in Obsidian's own export.
+ */
+function applyBodyOverrides(fontPt: number): () => void {
+  const { body, documentElement: html } = document;
+  const wasDark = body.hasClass("theme-dark");
+  const previousSize = body.style.getPropertyValue(FONT_SIZE_VARIABLE);
+  const previousRootSize = html.style.fontSize;
+  body.removeClass("theme-dark");
+  body.addClass("theme-light");
+  body.style.setProperty(FONT_SIZE_VARIABLE, `${fontPt}pt`);
+  html.style.fontSize = `${fontPt}pt`;
+
+  return () => {
+    html.style.fontSize = previousRootSize;
+    if (previousSize) body.style.setProperty(FONT_SIZE_VARIABLE, previousSize);
+    else body.style.removeProperty(FONT_SIZE_VARIABLE);
+    if (wasDark) {
+      body.removeClass("theme-light");
+      body.addClass("theme-dark");
+    }
+  };
 }
 
 async function readBody(app: App, file: TFile): Promise<string> {
