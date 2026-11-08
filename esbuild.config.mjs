@@ -13,5 +13,7 @@ await build({
   target: "es2022",
   external: ["obsidian", "electron"],
   banner: { js: `/*\n${notices}*/` },
+  // Library comments include examples using fs, which the directory's scanner reports as real use.
+  minifyWhitespace: true,
   logLevel: "info",
 });
