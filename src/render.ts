@@ -35,8 +35,13 @@ export async function renderStrips(
   g: Geometry,
   compact: boolean,
 ): Promise<Uint8Array> {
-  // theme-light matches Obsidian's own PDF export: paper is white even in dark mode.
-  const root = document.body.createDiv("print theme-light cheatsheet-export");
+  // Paper is white even in dark mode, as in Obsidian's own export. Colours resolve on <body>,
+  // so the class has to change there for the length of the export.
+  const wasDark = document.body.hasClass("theme-dark");
+  document.body.removeClass("theme-dark");
+  document.body.addClass("theme-light");
+
+  const root = document.body.createDiv("print cheatsheet-export");
   root.toggleClass("cheatsheet-compact", compact);
   root.style.setProperty("--cheatsheet-strip-width", `${g.stripWidth}mm`);
   root.style.setProperty("--cheatsheet-strip-height", `${g.stripHeight}mm`);
@@ -65,6 +70,10 @@ export async function renderStrips(
   } finally {
     component.unload();
     root.remove();
+    if (wasDark) {
+      document.body.removeClass("theme-light");
+      document.body.addClass("theme-dark");
+    }
   }
 }
 
