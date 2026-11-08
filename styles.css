@@ -22,6 +22,11 @@
   opacity: 0.4;
 }
 
+/* Stops the app being restyled for every measurement. Never painted. */
+.cheatsheet-measuring {
+  content-visibility: hidden;
+}
+
 /* Lay the note out off-screen at strip width, so diagrams measure correctly. */
 @media screen {
   body > .cheatsheet-export {

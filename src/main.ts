@@ -1,4 +1,4 @@
-import { FileSystemAdapter, Notice, Plugin, TFile } from "obsidian";
+import { FileSystemAdapter, Notice, Plugin, TFile, normalizePath } from "obsidian";
 import { COLUMN_GAP_MM, capacity, computeGeometry } from "./geometry.ts";
 import { impose } from "./impose.ts";
 import { ExportModal, type ExportSettings } from "./modal.ts";
@@ -64,8 +64,8 @@ export default class CheatsheetExporter extends Plugin {
       const rendered = await note.print(geometry, settings.compact);
       const { pdf, strips: used, sides } = await impose(rendered.pdf, geometry);
 
-      const path = `${file.parent?.path === "/" ? "" : `${file.parent?.path}/`}${file.basename} - cheatsheet.pdf`;
-      await this.app.vault.adapter.writeBinary(path, toArrayBuffer(pdf));
+      const path = normalizePath(`${file.parent?.path ?? ""}/${file.basename} - cheatsheet.pdf`);
+      await this.savePdf(path, toArrayBuffer(pdf));
 
       const limit = capacity(geometry);
       const fit = used > limit ? `, so it needs ${sides} sides` : "";
@@ -87,6 +87,12 @@ export default class CheatsheetExporter extends Plugin {
       progress.hide();
       note?.dispose();
     }
+  }
+
+  private async savePdf(path: string, data: ArrayBuffer): Promise<void> {
+    const existing = this.app.vault.getFileByPath(path);
+    if (existing) await this.app.vault.modifyBinary(existing, data);
+    else await this.app.vault.createBinary(path, data);
   }
 
   private async openInDefaultApp(path: string): Promise<void> {

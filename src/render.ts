@@ -48,7 +48,7 @@ export class RenderedNote {
 
   static async render(app: App, file: TFile): Promise<RenderedNote> {
     const root = document.body.createDiv("print cheatsheet-export");
-    root.style.setProperty("--cheatsheet-strip-width", `${STRIP_WIDTH_MM}mm`);
+    root.setCssProps({ "--cheatsheet-strip-width": `${STRIP_WIDTH_MM}mm` });
     const view = root.createDiv("markdown-preview-view markdown-rendered");
     const component = new Component();
     component.load();
@@ -73,8 +73,8 @@ export class RenderedNote {
     this.root.toggleClass("cheatsheet-compact", compact);
     const font = overrideFontSize();
     // The app behind would otherwise be restyled for every measurement.
-    const app = document.querySelector<HTMLElement>(".app-container");
-    app?.style.setProperty("content-visibility", "hidden");
+    const app = document.querySelector(".app-container");
+    app?.addClass("cheatsheet-measuring");
     try {
       return fn((g) => {
         this.setStripHeight(g);
@@ -86,7 +86,7 @@ export class RenderedNote {
         };
       });
     } finally {
-      app?.style.removeProperty("content-visibility");
+      app?.removeClass("cheatsheet-measuring");
       font.restore();
     }
   }
@@ -121,7 +121,7 @@ export class RenderedNote {
   }
 
   private setStripHeight(g: Geometry): void {
-    this.root.style.setProperty("--cheatsheet-strip-height", `${g.stripHeight}mm`);
+    this.root.setCssProps({ "--cheatsheet-strip-height": `${g.stripHeight}mm` });
   }
 }
 
@@ -132,13 +132,12 @@ function overrideFontSize() {
   const previousRoot = html.style.fontSize;
   return {
     set(pt: number): void {
-      body.style.setProperty(FONT_SIZE_VARIABLE, `${pt}pt`);
-      html.style.fontSize = `${pt}pt`;
+      body.setCssProps({ [FONT_SIZE_VARIABLE]: `${pt}pt` });
+      html.setCssStyles({ fontSize: `${pt}pt` });
     },
     restore(): void {
-      html.style.fontSize = previousRoot;
-      if (previousVariable) body.style.setProperty(FONT_SIZE_VARIABLE, previousVariable);
-      else body.style.removeProperty(FONT_SIZE_VARIABLE);
+      html.setCssStyles({ fontSize: previousRoot });
+      body.setCssProps({ [FONT_SIZE_VARIABLE]: previousVariable });
     },
   };
 }

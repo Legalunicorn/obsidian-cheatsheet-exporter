@@ -89,14 +89,7 @@ export class ExportModal extends Modal {
       .addButton((button) => {
         button.setButtonText("Auto recommend").setDisabled(true);
         button.onClick(() => void this.applyRecommendation(button));
-        this.pendingNote.then(
-          (note) => {
-            this.note = note;
-            button.setDisabled(false);
-            this.refresh();
-          },
-          (error: Error) => this.fit.setDesc(`Could not measure this note: ${error.message}`),
-        );
+        void this.whenMeasurable(button);
       });
 
     new Setting(this.contentEl).addButton((button) =>
@@ -110,6 +103,17 @@ export class ExportModal extends Modal {
         }),
     );
 
+    this.refresh();
+  }
+
+  private async whenMeasurable(button: ButtonComponent) {
+    try {
+      this.note = await this.pendingNote;
+    } catch (error) {
+      this.fit.setDesc(`Could not measure this note: ${(error as Error).message}`);
+      return;
+    }
+    button.setDisabled(false);
     this.refresh();
   }
 
@@ -195,11 +199,14 @@ export class ExportModal extends Modal {
 
   onClose() {
     this.contentEl.empty();
-    if (!this.exported) {
-      this.pendingNote.then(
-        (note) => note.dispose(),
-        () => undefined,
-      );
+    if (!this.exported) void this.discardNote();
+  }
+
+  private async discardNote() {
+    try {
+      (await this.pendingNote).dispose();
+    } catch {
+      // Rendering failed, so there is nothing to clean up.
     }
   }
 }
