@@ -1,3 +1,27 @@
+/* Export dialog: a small A4 sheet cut into columns. */
+.cheatsheet-preview {
+  display: flex;
+  gap: 2px;
+  box-sizing: border-box;
+  width: 84px;
+  aspect-ratio: 210 / 297;
+  margin: 0 0 var(--size-4-3) auto;
+  padding: 3px;
+  border: 1px solid var(--text-muted);
+  border-radius: 2px;
+}
+
+.cheatsheet-preview.is-landscape {
+  width: 119px;
+  aspect-ratio: 297 / 210;
+}
+
+.cheatsheet-preview > div {
+  flex: 1;
+  background: var(--interactive-accent);
+  opacity: 0.4;
+}
+
 /* Lay the note out off-screen at strip width, so diagrams measure correctly. */
 @media screen {
   body > .cheatsheet-export {

@@ -6,7 +6,7 @@ Text flows down each column, then left to right, then onto the back of the sheet
 
 ## Use
 
-Run **Export current note as cheatsheet** from the command palette, choose the orientation, number of columns and printed font size, then export. The PDF is saved next to the note and opens in your default PDF app, and a notice says how many columns it used. If the note doesn't fit on one sheet, everything is still exported and the notice says how many sides it needs. Text under 6 pt also gets a readability warning.
+Run **Export current note as cheatsheet** from the command palette, choose the orientation, number of columns and printed font size, then export. The PDF is saved next to the note and opens in your default PDF app, and a notice says how many columns it used. If the note doesn't fit on one sheet, everything is still exported and the notice says how many sides it needs. The notice also warns about text under 6 pt, and about formulas or tables too wide for their column, which get cut off.
 
 Printed font size is the real size on paper. More columns at the same font size means narrower columns, which wastes less space on short lines but wraps long lines more often.
 

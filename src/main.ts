@@ -54,11 +54,11 @@ export default class CheatsheetExporter extends Plugin {
         settings.printedFontPt < SMALL_FONT_PT
           ? ` Text prints at ${settings.printedFontPt} pt, which may be hard to read.`
           : "";
-      const shrunk =
-        rendered.shrunk > 0
-          ? ` ${rendered.shrunk} wide formulas or tables were shrunk to fit their column.`
+      const cut =
+        rendered.overflowing > 0
+          ? ` ${rendered.overflowing} formulas or tables are wider than their column and get cut off.`
           : "";
-      new Notice(`Cheatsheet saved: uses ${used} of ${limit} columns${fit}.${small}${shrunk}`, 8000);
+      new Notice(`Cheatsheet saved: uses ${used} of ${limit} columns${fit}.${small}${cut}`, 8000);
       // Not awaited: a slow-starting viewer shouldn't hold up the export.
       void this.openInDefaultApp(path);
       return path;
