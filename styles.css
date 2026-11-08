@@ -1,0 +1,66 @@
+/* Lay the note out off-screen at strip width, so diagrams measure correctly. */
+@media screen {
+  body > .cheatsheet-export {
+    display: block !important;
+    position: fixed;
+    left: -100000px;
+    top: 0;
+    width: var(--cheatsheet-strip-width);
+  }
+}
+
+.cheatsheet-export .markdown-preview-view {
+  font-size: var(--font-text-size) !important;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  padding: 0 !important;
+}
+
+/* A strip break must never cut through these. */
+.cheatsheet-export img,
+.cheatsheet-export svg,
+.cheatsheet-export mjx-container,
+.cheatsheet-export tr {
+  break-inside: avoid;
+}
+
+.cheatsheet-export :is(h1, h2, h3, h4, h5, h6, .callout-title) {
+  break-after: avoid;
+}
+
+/* Anything wider or taller than one strip has nowhere else to go. */
+.cheatsheet-export img {
+  max-width: 100%;
+  max-height: var(--cheatsheet-strip-height);
+}
+
+.cheatsheet-export pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.cheatsheet-export table {
+  max-width: 100%;
+}
+
+/* Optional toggle: remove the spacing a theme adds. */
+.cheatsheet-compact .markdown-preview-view {
+  line-height: 1.2;
+}
+
+.cheatsheet-compact :is(p, ul, ol, pre, blockquote, table, .callout) {
+  margin-block: 0.15em;
+}
+
+.cheatsheet-compact :is(h1, h2, h3, h4, h5, h6) {
+  margin-block: 0.25em 0.1em;
+}
+
+.cheatsheet-compact :is(ul, ol) {
+  padding-inline-start: 1.1em;
+}
+
+.cheatsheet-compact :is(td, th) {
+  padding: 0.1em 0.3em;
+}

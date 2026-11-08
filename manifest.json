@@ -1,0 +1,9 @@
+{
+  "id": "cheatsheet-exporter",
+  "name": "Cheatsheet Exporter",
+  "version": "0.1.0",
+  "minAppVersion": "1.7.2",
+  "description": "Export a note as a dense, double-sided A4 cheatsheet PDF.",
+  "author": "Legalunicorn",
+  "isDesktopOnly": true
+}

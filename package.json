@@ -1,0 +1,22 @@
+{
+  "name": "obsidian-cheatsheet-exporter",
+  "version": "0.1.0",
+  "description": "Export an Obsidian note as a dense, double-sided A4 cheatsheet PDF.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node esbuild.config.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"test/*.test.ts\""
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "esbuild": "^0.28.2",
+    "obsidian": "^1.14.4",
+    "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "@cantoo/pdf-lib": "^2.11.1"
+  }
+}
