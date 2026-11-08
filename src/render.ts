@@ -13,6 +13,7 @@ const QUIET_MS = 400;
 const SETTLE_TIMEOUT_MS = 15000;
 
 const FONT_SIZE_VARIABLE = "--font-text-size";
+const FIT_SAFETY = 0.98;
 
 interface ElectronApi {
   remote: {
@@ -36,7 +37,7 @@ export async function renderStrips(
   file: TFile,
   g: Geometry,
   compact: boolean,
-): Promise<Uint8Array> {
+): Promise<{ pdf: Uint8Array; shrunk: number }> {
   const restoreBody = applyBodyOverrides(g.sourceFontPt);
   const root = document.body.createDiv("print cheatsheet-export");
   root.toggleClass("cheatsheet-compact", compact);
@@ -51,8 +52,9 @@ export async function renderStrips(
     await MarkdownRenderer.render(app, await readBody(app, file), view, file.path, component);
     await waitUntilSettled(view);
     await finishRenderMath();
+    const shrunk = shrinkOverflowing(view);
 
-    return await electron().remote.getCurrentWebContents().printToPDF({
+    const pdf = await electron().remote.getCurrentWebContents().printToPDF({
       pageSize: {
         width: g.stripWidth / MM_PER_INCH,
         height: g.stripHeight / MM_PER_INCH,
@@ -60,6 +62,7 @@ export async function renderStrips(
       margins: { top: 0, bottom: 0, left: 0, right: 0 },
       printBackground: true,
     });
+    return { pdf, shrunk };
   } finally {
     component.unload();
     root.remove();
@@ -91,6 +94,28 @@ function applyBodyOverrides(fontPt: number): () => void {
       body.addClass("theme-dark");
     }
   };
+}
+
+/**
+ * Anything past the column edge would be cut off on paper, so shrink just those elements.
+ * Tables go first because shrinking one also shrinks the math inside it.
+ */
+function shrinkOverflowing(view: HTMLElement): number {
+  const edge = view.getBoundingClientRect().right;
+  let shrunk = 0;
+  for (const selector of ["table", "mjx-math"]) {
+    const fits = Array.from(view.querySelectorAll<HTMLElement>(selector), (el) => {
+      const { left, right, width } = el.getBoundingClientRect();
+      return { el, zoom: right > edge + 0.5 ? (edge - left) / width : 1 };
+    });
+    for (const { el, zoom } of fits) {
+      if (zoom < 1) {
+        el.style.zoom = String(zoom * FIT_SAFETY);
+        shrunk++;
+      }
+    }
+  }
+  return shrunk;
 }
 
 async function readBody(app: App, file: TFile): Promise<string> {

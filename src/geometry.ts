@@ -5,16 +5,9 @@ export const A4 = { short: 210, long: 297 };
 /** Width every strip is rendered at, before being scaled down onto the sheet. */
 export const STRIP_WIDTH_MM = 210;
 
-export const LAYOUTS = {
-  "8": { columns: 4, landscape: true, label: "8 per side (4 columns, landscape)" },
-  "9": { columns: 3, landscape: false, label: "9 per side (3 columns, portrait)" },
-  "16": { columns: 4, landscape: false, label: "16 per side (4 columns, portrait)" },
-} as const;
-
-export type LayoutId = keyof typeof LAYOUTS;
-
 export interface GeometryInput {
-  layout: LayoutId;
+  columns: number;
+  landscape: boolean;
   printedFontPt: number;
   marginMm: number;
   gapMm: number;
@@ -36,7 +29,10 @@ export interface Geometry {
 }
 
 export function computeGeometry(input: GeometryInput): Geometry {
-  const { columns, landscape } = LAYOUTS[input.layout];
+  const { columns, landscape } = input;
+  if (!Number.isInteger(columns) || columns < 1) {
+    throw new Error("Columns must be a whole number of at least 1.");
+  }
   const sheetWidth = landscape ? A4.long : A4.short;
   const sheetHeight = landscape ? A4.short : A4.long;
   const columnWidth =

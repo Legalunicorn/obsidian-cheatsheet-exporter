@@ -1,8 +1,8 @@
 import { Modal, Setting, type App } from "obsidian";
-import { LAYOUTS, type LayoutId } from "./geometry.ts";
 
 export interface ExportSettings {
-  layout: LayoutId;
+  columns: number;
+  landscape: boolean;
   printedFontPt: number;
   marginMm: number;
   compact: boolean;
@@ -21,12 +21,14 @@ export class ExportModal extends Modal {
   onOpen() {
     this.setTitle("Export cheatsheet");
 
-    new Setting(this.contentEl).setName("Layout").addDropdown((dropdown) => {
-      for (const [id, layout] of Object.entries(LAYOUTS)) dropdown.addOption(id, layout.label);
-      dropdown.setValue(this.values.layout);
-      dropdown.onChange((id) => (this.values.layout = id as LayoutId));
+    new Setting(this.contentEl).setName("Orientation").addDropdown((dropdown) => {
+      dropdown.addOption("landscape", "Landscape");
+      dropdown.addOption("portrait", "Portrait");
+      dropdown.setValue(this.values.landscape ? "landscape" : "portrait");
+      dropdown.onChange((value) => (this.values.landscape = value === "landscape"));
     });
 
+    this.addNumber("Columns per side", "columns", 1);
     this.addNumber("Printed font size (pt)", "printedFontPt", 0.5);
     this.addNumber("Outer margin (mm)", "marginMm", 1);
 
@@ -49,7 +51,7 @@ export class ExportModal extends Modal {
     );
   }
 
-  private addNumber(name: string, key: "printedFontPt" | "marginMm", step: number) {
+  private addNumber(name: string, key: "columns" | "printedFontPt" | "marginMm", step: number) {
     new Setting(this.contentEl).setName(name).addText((text) => {
       text.inputEl.type = "number";
       text.inputEl.min = "0";

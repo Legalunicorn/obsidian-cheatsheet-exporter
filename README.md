@@ -4,15 +4,11 @@ An Obsidian plugin that exports a note as a dense A4 cheatsheet PDF, built to fi
 
 Text flows down each column, then left to right, then onto the back of the sheet. Each column is rendered as one tall strip, so content only breaks between columns.
 
-| Layout | Sheet | Columns per side |
-| --- | --- | --- |
-| 8 per side | A4 landscape | 4 |
-| 9 per side | A4 portrait | 3 |
-| 16 per side | A4 portrait | 4 |
-
 ## Use
 
-Run **Export current note as cheatsheet** from the command palette, choose a layout and printed font size, then export. The PDF is saved next to the note and opens in your default PDF app, and a notice says how many columns it used. If the note doesn't fit on one sheet, everything is still exported and the notice says how many sides it needs.
+Run **Export current note as cheatsheet** from the command palette, choose the orientation, number of columns and printed font size, then export. The PDF is saved next to the note and opens in your default PDF app, and a notice says how many columns it used. If the note doesn't fit on one sheet, everything is still exported and the notice says how many sides it needs. Text under 6 pt also gets a readability warning.
+
+Printed font size is the real size on paper. More columns at the same font size means narrower columns, which wastes less space on short lines but wraps long lines more often.
 
 Print at **actual size**, not "fit to page". Choose double-sided printing that flips on the short edge for landscape layouts and the long edge for portrait layouts.
 

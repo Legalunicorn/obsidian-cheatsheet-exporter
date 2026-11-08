@@ -5,9 +5,11 @@ import { ExportModal, type ExportSettings } from "./modal.ts";
 import { electron, renderStrips } from "./render.ts";
 
 const COLUMN_GAP_MM = 2;
+const SMALL_FONT_PT = 6;
 
 const DEFAULT_SETTINGS: ExportSettings = {
-  layout: "8",
+  columns: 4,
+  landscape: true,
   printedFontPt: 6,
   marginMm: 5,
   compact: false,
@@ -40,20 +42,25 @@ export default class CheatsheetExporter extends Plugin {
     const progress = new Notice("Exporting cheatsheet...", 0);
     try {
       const geometry = computeGeometry({ ...settings, gapMm: COLUMN_GAP_MM });
-      const strips = await renderStrips(this.app, file, geometry, settings.compact);
-      const { pdf, strips: used, sides } = await impose(strips, geometry);
+      const rendered = await renderStrips(this.app, file, geometry, settings.compact);
+      const { pdf, strips: used, sides } = await impose(rendered.pdf, geometry);
 
       const path = `${file.parent?.path === "/" ? "" : `${file.parent?.path}/`}${file.basename} - cheatsheet.pdf`;
       await this.app.vault.adapter.writeBinary(path, toArrayBuffer(pdf));
 
       const limit = capacity(geometry);
-      new Notice(
-        used > limit
-          ? `Cheatsheet saved: uses ${used} of ${limit} columns, so it needs ${sides} sides.`
-          : `Cheatsheet saved: uses ${used} of ${limit} columns.`,
-        8000,
-      );
-      await this.openInDefaultApp(path);
+      const fit = used > limit ? `, so it needs ${sides} sides` : "";
+      const small =
+        settings.printedFontPt < SMALL_FONT_PT
+          ? ` Text prints at ${settings.printedFontPt} pt, which may be hard to read.`
+          : "";
+      const shrunk =
+        rendered.shrunk > 0
+          ? ` ${rendered.shrunk} wide formulas or tables were shrunk to fit their column.`
+          : "";
+      new Notice(`Cheatsheet saved: uses ${used} of ${limit} columns${fit}.${small}${shrunk}`, 8000);
+      // Not awaited: a slow-starting viewer shouldn't hold up the export.
+      void this.openInDefaultApp(path);
       return path;
     } catch (error) {
       console.error("Cheatsheet export failed", error);
