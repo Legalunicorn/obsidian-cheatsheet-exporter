@@ -1,29 +1,46 @@
 # Cheatsheet Exporter
 
-Export an Obsidian note as a dense, double-sided A4 cheatsheet PDF. Your theme, LaTeX, images and tables are kept, and nothing else needs to be installed.
+Export your Obsidian note as a dense, double-sided A4 cheatsheet PDF. The primary use case is for college students.
 
-Text flows down each column, then left to right, then onto the back of the sheet. You choose the orientation, the number of columns and the printed font size.
+Your theme, LaTeX, images and tables are kept, and nothing else needs to be installed.
+
+## Demo
+
+[![Watch the demo on YouTube](https://img.youtube.com/vi/6KE7icNV5ho/maxresdefault.jpg)](https://youtu.be/6KE7icNV5ho)
+
+*Click the image to watch the 30 second demo on YouTube.*
 
 ## How to use
 
-1. Open a note, then run **Export current note as cheatsheet** from the command palette. You can also choose **Export as cheatsheet...** from the note's three-dot menu, or by right-clicking it in the file list.
-2. Pick the orientation and columns per side. The dialog shows the sheet cut into columns and estimates how many sides your note needs.
-3. Adjust the font size until it fits, or press **Auto recommend** to fill in the layout that allows the largest font with nothing cut off. Auto recommend only sets the options. It doesn't export.
-4. Press **Export**. The PDF is saved next to your note as `<note name> - cheatsheet.pdf` and opens in your default PDF app.
+1. Install the plugin and **Enable** it under **Settings → Community plugins**.
+2. Open the note you want to export. It has to be the note that is currently open.
+3. Open the command palette with `Ctrl + P` on Windows or `Cmd + P` on macOS, then search for and run **Cheatsheet Exporter: Export current note as cheatsheet**.
+
+   ![Command palette](docs/run_command.png)
+
+   Alternatively, click the three dots in the top right of the note:
+
+   ![Three dots menu](docs/three_dots.png)
+
+   then choose **Export as cheatsheet...**:
+
+   ![Export as cheatsheet menu item](docs/export_button.png)
+
+4. Pick your desired orientation and columns per side.
+5. Adjust the font size until it fits, or press **Auto recommend** to fill in the layout that allows the largest font with nothing cut off. This could take a few seconds for large notes. I recommend at least 6 pt, otherwise the words are barely visible when printed.
+6. Press **Export**. The PDF is saved next to your note as `<note name> - cheatsheet.pdf` and opens in your default PDF app.
 
 ## Printing
 
 Print at **actual size**, not "fit to page", or the font size won't match what you chose. For double-sided printing, flip on the short edge for landscape and on the long edge for portrait.
 
-## What it won't do for you
+## If your note doesn't fit
 
 The plugin warns you but never changes your content to make it fit:
 
 - A note too long for one sheet still exports in full, and the notice says how many sides it needs.
-- Text under 6 pt gets a readability warning.
-- Formulas or tables wider than their column get cut off on paper, and the dialog and notice say how many. Use fewer columns or a smaller font.
-
-Force compact spacing removes the margins and padding your theme adds, which often saves a lot of space.
+- Formulas or tables wider than their column get cut off on paper, and the dialog and notice say how many. **Use fewer columns or a smaller font.**
+- **Force compact spacing** removes the margins and padding your theme adds, which often saves a lot of space, depending on your Obsidian theme and custom styling.
 
 ## Compatibility and privacy
 
