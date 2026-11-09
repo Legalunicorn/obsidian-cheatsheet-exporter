@@ -22,6 +22,24 @@
   opacity: 0.4;
 }
 
+.cheatsheet-warning {
+  margin-block: var(--size-4-2);
+  padding: var(--size-4-2) var(--size-4-3);
+  border: 1px solid rgba(var(--color-yellow-rgb), 0.35);
+  border-radius: var(--radius-s);
+  background: rgba(var(--color-yellow-rgb), 0.1);
+  font-size: var(--font-ui-small);
+}
+
+.cheatsheet-warning:empty {
+  display: none;
+}
+
+.cheatsheet-warning ul {
+  margin: 0;
+  padding-inline-start: 1.2em;
+}
+
 /* Only transform is animated, so it keeps turning while measuring holds up the window. */
 .cheatsheet-spinner {
   visibility: hidden;

@@ -8,7 +8,14 @@ import {
   type TextComponent,
 } from "obsidian";
 import { COLUMN_GAP_MM, capacity, computeGeometry } from "./geometry.ts";
-import { MAX_COLUMNS, MIN_FONT_PT, largestFont, recommendLayout, type Measure } from "./recommend.ts";
+import {
+  MAX_COLUMNS,
+  MIN_FONT_PT,
+  SMALL_FONT_PT,
+  largestFont,
+  recommendLayout,
+  type Measure,
+} from "./recommend.ts";
 import type { RenderedNote } from "./render.ts";
 
 /** Measuring a long note takes a while, so wait for a pause in typing. */
@@ -22,6 +29,11 @@ export interface ExportSettings {
   compact: boolean;
 }
 
+interface Fit {
+  summary: string;
+  warnings: string[];
+}
+
 export class ExportModal extends Modal {
   private readonly values: ExportSettings;
   private readonly pendingNote: Promise<RenderedNote>;
@@ -33,7 +45,9 @@ export class ExportModal extends Modal {
   private columns!: DropdownComponent;
   private font!: TextComponent;
   private preview!: HTMLElement;
+  private fontWarning!: HTMLElement;
   private fit!: Setting;
+  private fitWarnings!: HTMLElement;
   private spinner!: HTMLElement;
   private readonly measureSoon = debounce(() => this.updateFit(), MEASURE_DELAY_MS, true);
 
@@ -75,6 +89,7 @@ export class ExportModal extends Modal {
 
     this.preview = this.contentEl.createDiv("cheatsheet-preview");
 
+    this.fontWarning = this.contentEl.createDiv("cheatsheet-warning");
     this.font = this.addNumber("Printed font size (pt)", "printedFontPt", 0.5);
     this.addNumber("Outer margin (mm)", "marginMm", 1);
 
@@ -101,6 +116,7 @@ export class ExportModal extends Modal {
       cls: "cheatsheet-spinner is-active",
       prepend: true,
     });
+    this.fitWarnings = this.contentEl.createDiv("cheatsheet-warning");
 
     new Setting(this.contentEl).addButton((button) =>
       button
@@ -120,7 +136,7 @@ export class ExportModal extends Modal {
     try {
       this.note = await this.pendingNote;
     } catch (error) {
-      this.fit.setDesc(`Could not measure this note: ${(error as Error).message}`);
+      this.showFit({ summary: `Could not measure this note: ${(error as Error).message}`, warnings: [] });
       this.setMeasuring(false);
       return;
     }
@@ -146,41 +162,64 @@ export class ExportModal extends Modal {
   }
 
   private refresh() {
-    this.drawPreview();
+    this.showInstantFeedback();
     if (!this.note) return;
     this.setMeasuring(true);
     this.measureSoon();
   }
 
-  private drawPreview() {
+  /** Everything that doesn't need the note measured. */
+  private showInstantFeedback() {
     this.preview.toggleClass("is-landscape", this.values.landscape);
     this.preview.empty();
     for (let i = 0; i < this.values.columns; i++) this.preview.createDiv();
+
+    const { printedFontPt } = this.values;
+    const tooSmall = printedFontPt > 0 && printedFontPt < SMALL_FONT_PT;
+    this.fontWarning.setText(tooSmall ? `Text under ${SMALL_FONT_PT} pt can be hard to read on paper.` : "");
   }
 
   private updateFit() {
-    if (this.note) this.fit.setDesc(this.describeFit(this.note));
+    if (this.note) this.showFit(this.describeFit(this.note));
     this.setMeasuring(false);
+  }
+
+  private showFit({ summary, warnings }: Fit) {
+    this.fit.setDesc(summary);
+    this.fitWarnings.empty();
+    if (warnings.length === 0) return;
+    const list = this.fitWarnings.createEl("ul");
+    for (const warning of warnings) list.createEl("li", { text: warning });
   }
 
   private setMeasuring(measuring: boolean) {
     this.spinner.toggleClass("is-active", measuring);
   }
 
-  private describeFit(note: RenderedNote): string {
+  private describeFit(note: RenderedNote): Fit {
     const { columns, landscape, marginMm, printedFontPt, compact } = this.values;
-    if (printedFontPt <= 0) return "Enter a font size to see the fit.";
+    if (printedFontPt <= 0) return { summary: "Enter a font size to see the fit.", warnings: [] };
     try {
       return note.probe(compact, (measure) => {
         const g = computeGeometry({ ...this.values, gapMm: COLUMN_GAP_MM });
         const { strips, overflowing } = measure(g);
         const sides = (strips / columns).toFixed(1);
-        const cut = overflowing > 0 ? ` ${overflowing} formulas or tables get cut off.` : "";
-        if (strips <= capacity(g)) return `Fits on one sheet: about ${sides} of 2 sides.${cut}`;
-        return `About ${sides} sides, more than one sheet. ${this.suggestion(measure, { columns, landscape, marginMm })}${cut}`;
+        const fits = strips <= capacity(g);
+        const warnings: string[] = [];
+        if (!fits) {
+          warnings.push(`More than one sheet. ${this.suggestion(measure, { columns, landscape, marginMm })}`);
+        }
+        if (overflowing > 0) {
+          const what = overflowing === 1 ? "1 formula or table gets" : `${overflowing} formulas or tables get`;
+          warnings.push(`${what} cut off. Try fewer columns or a smaller font.`);
+        }
+        return {
+          summary: fits ? `Fits on one sheet: about ${sides} of 2 sides.` : `About ${sides} sides.`,
+          warnings,
+        };
       });
     } catch (error) {
-      return (error as Error).message;
+      return { summary: (error as Error).message, warnings: [] };
     }
   }
 
@@ -199,7 +238,7 @@ export class ExportModal extends Modal {
     this.measureSoon.cancel();
     button.setDisabled(true);
     this.setMeasuring(true);
-    this.fit.setDesc("Working out the best layout...");
+    this.showFit({ summary: "Working out the best layout...", warnings: [] });
     // Let that message and the spinner appear before the measurements hold up the window.
     await new Promise((resolve) => window.setTimeout(resolve, 50));
 
@@ -207,14 +246,17 @@ export class ExportModal extends Modal {
     try {
       best = note.probe(compact, (measure) => recommendLayout(measure, marginMm));
     } catch (error) {
-      this.fit.setDesc((error as Error).message);
+      this.showFit({ summary: (error as Error).message, warnings: [] });
       this.setMeasuring(false);
       return;
     } finally {
       button.setDisabled(false);
     }
     if (!best) {
-      this.fit.setDesc(`No layout fits this note on one sheet at ${MIN_FONT_PT} pt or larger.`);
+      this.showFit({
+        summary: "Auto recommend found no layout.",
+        warnings: [`No layout fits this note on one sheet at ${MIN_FONT_PT} pt or larger.`],
+      });
       this.setMeasuring(false);
       return;
     }
@@ -224,7 +266,7 @@ export class ExportModal extends Modal {
     this.orientation.setValue(best.landscape ? "landscape" : "portrait");
     this.columns.setValue(String(best.columns));
     this.font.setValue(String(best.printedFontPt));
-    this.drawPreview();
+    this.showInstantFeedback();
     this.updateFit();
   }
 
