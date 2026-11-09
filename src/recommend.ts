@@ -2,6 +2,8 @@ import { COLUMN_GAP_MM, capacity, computeGeometry, type Geometry } from "./geome
 
 export const MAX_COLUMNS = 8;
 export const MIN_FONT_PT = 5;
+/** Below this, printed text gets hard to read. */
+export const SMALL_FONT_PT = 6;
 const MAX_FONT_PT = 14;
 const FONT_STEP_PT = 0.5;
 

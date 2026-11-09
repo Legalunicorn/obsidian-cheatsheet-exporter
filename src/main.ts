@@ -2,9 +2,8 @@ import { FileSystemAdapter, Notice, Plugin, TFile, normalizePath } from "obsidia
 import { COLUMN_GAP_MM, capacity, computeGeometry } from "./geometry.ts";
 import { impose } from "./impose.ts";
 import { ExportModal, type ExportSettings } from "./modal.ts";
+import { SMALL_FONT_PT } from "./recommend.ts";
 import { RenderedNote, electron } from "./render.ts";
-
-const SMALL_FONT_PT = 6;
 
 const DEFAULT_SETTINGS: ExportSettings = {
   columns: 4,
