@@ -1,6 +1,7 @@
 import {
   Modal,
   Setting,
+  debounce,
   type App,
   type ButtonComponent,
   type DropdownComponent,
@@ -9,6 +10,9 @@ import {
 import { COLUMN_GAP_MM, capacity, computeGeometry } from "./geometry.ts";
 import { MAX_COLUMNS, MIN_FONT_PT, largestFont, recommendLayout, type Measure } from "./recommend.ts";
 import type { RenderedNote } from "./render.ts";
+
+/** Measuring a long note takes a while, so wait for a pause in typing. */
+const MEASURE_DELAY_MS = 300;
 
 export interface ExportSettings {
   columns: number;
@@ -30,6 +34,8 @@ export class ExportModal extends Modal {
   private font!: TextComponent;
   private preview!: HTMLElement;
   private fit!: Setting;
+  private spinner!: HTMLElement;
+  private readonly measureSoon = debounce(() => this.updateFit(), MEASURE_DELAY_MS, true);
 
   constructor(
     app: App,
@@ -91,6 +97,10 @@ export class ExportModal extends Modal {
         button.onClick(() => void this.applyRecommendation(button));
         void this.whenMeasurable(button);
       });
+    this.spinner = this.fit.controlEl.createDiv({
+      cls: "cheatsheet-spinner is-active",
+      prepend: true,
+    });
 
     new Setting(this.contentEl).addButton((button) =>
       button
@@ -111,10 +121,11 @@ export class ExportModal extends Modal {
       this.note = await this.pendingNote;
     } catch (error) {
       this.fit.setDesc(`Could not measure this note: ${(error as Error).message}`);
+      this.setMeasuring(false);
       return;
     }
     button.setDisabled(false);
-    this.refresh();
+    this.updateFit();
   }
 
   private addNumber(name: string, key: "printedFontPt" | "marginMm", step: number): TextComponent {
@@ -135,10 +146,25 @@ export class ExportModal extends Modal {
   }
 
   private refresh() {
+    this.drawPreview();
+    if (!this.note) return;
+    this.setMeasuring(true);
+    this.measureSoon();
+  }
+
+  private drawPreview() {
     this.preview.toggleClass("is-landscape", this.values.landscape);
     this.preview.empty();
     for (let i = 0; i < this.values.columns; i++) this.preview.createDiv();
+  }
+
+  private updateFit() {
     if (this.note) this.fit.setDesc(this.describeFit(this.note));
+    this.setMeasuring(false);
+  }
+
+  private setMeasuring(measuring: boolean) {
+    this.spinner.toggleClass("is-active", measuring);
   }
 
   private describeFit(note: RenderedNote): string {
@@ -170,9 +196,11 @@ export class ExportModal extends Modal {
     if (!this.note) return;
     const note = this.note;
     const { marginMm, compact } = this.values;
+    this.measureSoon.cancel();
     button.setDisabled(true);
+    this.setMeasuring(true);
     this.fit.setDesc("Working out the best layout...");
-    // Let that message appear before the measurements hold up the window.
+    // Let that message and the spinner appear before the measurements hold up the window.
     await new Promise((resolve) => window.setTimeout(resolve, 50));
 
     let best: ReturnType<typeof recommendLayout>;
@@ -180,12 +208,14 @@ export class ExportModal extends Modal {
       best = note.probe(compact, (measure) => recommendLayout(measure, marginMm));
     } catch (error) {
       this.fit.setDesc((error as Error).message);
+      this.setMeasuring(false);
       return;
     } finally {
       button.setDisabled(false);
     }
     if (!best) {
       this.fit.setDesc(`No layout fits this note on one sheet at ${MIN_FONT_PT} pt or larger.`);
+      this.setMeasuring(false);
       return;
     }
     this.values.columns = best.columns;
@@ -194,10 +224,12 @@ export class ExportModal extends Modal {
     this.orientation.setValue(best.landscape ? "landscape" : "portrait");
     this.columns.setValue(String(best.columns));
     this.font.setValue(String(best.printedFontPt));
-    this.refresh();
+    this.drawPreview();
+    this.updateFit();
   }
 
   onClose() {
+    this.measureSoon.cancel();
     this.contentEl.empty();
     if (!this.exported) void this.discardNote();
   }
