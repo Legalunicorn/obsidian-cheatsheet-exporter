@@ -89,8 +89,8 @@ export class ExportModal extends Modal {
 
     this.preview = this.contentEl.createDiv("cheatsheet-preview");
 
-    this.fontWarning = this.contentEl.createDiv("cheatsheet-warning");
     this.font = this.addNumber("Printed font size (pt)", "printedFontPt", 0.5);
+    this.fontWarning = this.contentEl.createDiv("cheatsheet-warning");
     this.addNumber("Outer margin (mm)", "marginMm", 1);
 
     new Setting(this.contentEl)
