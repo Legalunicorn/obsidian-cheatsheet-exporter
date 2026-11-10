@@ -42,6 +42,28 @@ The plugin warns you but never changes your content to make it fit:
 - Formulas or tables wider than their column get cut off on paper, and the dialog and notice say how many. **Use fewer columns or a smaller font.**
 - **Force compact spacing** removes the margins and padding your theme adds, which often saves a lot of space, depending on your Obsidian theme and custom styling.
 
+## Tips
+
+- Start with Auto recommend, which picks the largest font that fits.
+- Turn on Force compact spacing before lowering the font.
+- More columns make lines narrower, which suits short lines but not wide formulas or tables.
+- At 6 pt, keep the note under about 18,000 characters (shown in Obsidian's status bar).
+- Split long formulas across lines with `aligned`:
+
+  ```latex
+  $$
+  \begin{aligned}
+  \operatorname{Var}(X) &= E[(X-\mu)^2] \\
+                        &= E[X^2] - (E[X])^2
+  \end{aligned}
+  $$
+  ```
+
+- Keep tables to 2–3 columns, or use a list instead.
+- Avoid deeply nested bullet points, since each level takes up column width.
+- Use H4 headings or bold text instead of H1 and H2.
+- Keep code lines short if your theme doesn't wrap code blocks.
+
 ## Compatibility and privacy
 
 Desktop only, because PDF export uses Electron. It has been tested on Windows.
