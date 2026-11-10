@@ -1,7 +1,7 @@
 {
   "name": "obsidian-cheatsheet-exporter",
   "version": "0.1.3",
-  "description": "Export an Obsidian note as a dense, double-sided A4 cheatsheet PDF.",
+  "description": "Export a note as a dense, double-sided A4 cheat sheet PDF for exams, made for college and university students.",
   "private": true,
   "type": "module",
   "scripts": {

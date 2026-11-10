@@ -1,6 +1,6 @@
 # Cheatsheet Exporter
 
-Export your Obsidian note as a dense, double-sided A4 cheatsheet PDF. The primary use case is for college students.
+Export your Obsidian note as a dense, double-sided A4 cheat sheet PDF for exams, made for college and university students.
 
 Your theme, LaTeX, images and tables are kept, and nothing else needs to be installed.
 
