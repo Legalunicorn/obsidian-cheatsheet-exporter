@@ -6,9 +6,10 @@ import {
   type App,
   type TFile,
 } from "obsidian";
-import { isDarkColor, toGrey } from "./color.ts";
+import { electron } from "./electron.ts";
 import { STRIP_WIDTH_MM, type Geometry } from "./geometry.ts";
 import type { Measure } from "./recommend.ts";
+import { forceLightTheme, greyOut, withAppHidden } from "./theme.ts";
 
 const MM_PER_INCH = 25.4;
 const PX_PER_MM = 96 / MM_PER_INCH;
@@ -18,22 +19,6 @@ const FONT_SIZE_VARIABLE = "--font-text-size";
 
 /** Blocks that can't split leave a gap at the bottom of a strip, so flow needs a bit more room. */
 const PAGINATION_WASTE = 1.05;
-
-interface ElectronApi {
-  remote: {
-    getCurrentWebContents(): {
-      printToPDF(options: object): Promise<Uint8Array>;
-    };
-    shell: {
-      /** Resolves to an error message, or "" on success. */
-      openPath(path: string): Promise<string>;
-    };
-  };
-}
-
-export function electron(): ElectronApi {
-  return (window as unknown as { require(m: "electron"): ElectronApi }).require("electron");
-}
 
 export interface PrintOptions {
   compact: boolean;
@@ -72,28 +57,23 @@ export class RenderedNote {
     }
   }
 
-  /**
-   * Gives `fn` a way to measure the note at any geometry. It all runs before the next
-   * paint, so the temporary font size is never visible in the app.
-   */
+  /** Gives `fn` a way to measure the note at any geometry, without the app ever showing the changes. */
   probe<T>(compact: boolean, fn: (measure: Measure) => T): T {
     this.root.toggleClass("cheatsheet-compact", compact);
     const font = overrideFontSize();
-    // The app behind would otherwise be restyled for every measurement.
-    const app = document.querySelector(".app-container");
-    app?.addClass("cheatsheet-measuring");
     try {
-      return fn((g) => {
-        this.setStripHeight(g);
-        font.set(g.sourceFontPt);
-        const height = this.view.getBoundingClientRect().height * PAGINATION_WASTE;
-        return {
-          strips: height / (g.stripHeight * PX_PER_MM),
-          overflowing: countOverflowing(this.view),
-        };
-      });
+      return withAppHidden(() =>
+        fn((g) => {
+          this.setStripHeight(g);
+          font.set(g.sourceFontPt);
+          const height = this.view.getBoundingClientRect().height * PAGINATION_WASTE;
+          return {
+            strips: height / (g.stripHeight * PX_PER_MM),
+            overflowing: countOverflowing(this.view),
+          };
+        }),
+      );
     } finally {
-      app?.removeClass("cheatsheet-measuring");
       font.restore();
     }
   }
@@ -104,15 +84,13 @@ export class RenderedNote {
    * their colours because Obsidian marks the note `print-color-adjust: exact`.
    */
   async print(g: Geometry, options: PrintOptions): Promise<{ pdf: Uint8Array; overflowing: number }> {
-    const { compact, printBackground, greyscale } = options;
-    this.root.toggleClass("cheatsheet-compact", compact);
-    this.root.toggleClass("cheatsheet-greyscale", greyscale);
+    this.root.toggleClass("cheatsheet-compact", options.compact);
     this.setStripHeight(g);
     const font = overrideFontSize();
-    const restoreTheme = forceLightTheme();
     font.set(g.sourceFontPt);
+    const restoreTheme = forceLightTheme();
     // After the theme switch, so the light theme's colours are the ones turned grey.
-    const restoreColours = greyscale ? greyOut(this.root) : () => {};
+    const restoreColours = options.greyscale ? greyOut(this.root) : () => {};
     try {
       const overflowing = countOverflowing(this.view);
       const pdf = await electron().remote.getCurrentWebContents().printToPDF({
@@ -121,7 +99,7 @@ export class RenderedNote {
           height: g.stripHeight / MM_PER_INCH,
         },
         margins: { top: 0, bottom: 0, left: 0, right: 0 },
-        printBackground,
+        printBackground: options.printBackground,
       });
       return { pdf, overflowing };
     } finally {
@@ -146,6 +124,15 @@ export class RenderedNote {
   }
 }
 
+/** Disposes a note once it has rendered. Nothing is left to clean up if rendering failed. */
+export async function discard(pendingNote: Promise<RenderedNote>): Promise<void> {
+  try {
+    (await pendingNote).dispose();
+  } catch {
+    // Rendering failed and already cleaned up after itself.
+  }
+}
+
 /** Themes derive sizes on <body> and some use rem, so both have to follow the export font. */
 function overrideFontSize() {
   const { body, documentElement: html } = document;
@@ -160,80 +147,6 @@ function overrideFontSize() {
       html.setCssStyles({ fontSize: previousRoot });
       body.setCssProps({ [FONT_SIZE_VARIABLE]: previousVariable });
     },
-  };
-}
-
-/**
- * True when the theme stays dark in light mode, so the sheet prints on a dark page or
- * with faint text. Runs before the next paint, so the theme switch is never visible.
- */
-export function themeIsDarkOnly(): boolean {
-  const app = document.querySelector(".app-container");
-  app?.addClass("cheatsheet-measuring");
-  const restoreTheme = forceLightTheme();
-  try {
-    return isDarkColor(getComputedStyle(document.body).backgroundColor);
-  } finally {
-    restoreTheme();
-    app?.removeClass("cheatsheet-measuring");
-  }
-}
-
-/** Prints in the theme's light mode, as in Obsidian's own export. Colours resolve on <body>. */
-function forceLightTheme(): () => void {
-  const { body } = document;
-  const wasDark = body.hasClass("theme-dark");
-  body.removeClass("theme-dark");
-  body.addClass("theme-light");
-  return () => {
-    if (wasDark) {
-      body.removeClass("theme-light");
-      body.addClass("theme-dark");
-    }
-  };
-}
-
-const COLOUR_PROPERTIES = [
-  "color",
-  "background-color",
-  "border-top-color",
-  "border-right-color",
-  "border-bottom-color",
-  "border-left-color",
-  "outline-color",
-  "text-decoration-color",
-  "fill",
-  "stroke",
-];
-const TEXT_PROPERTIES = new Set(["color", "text-decoration-color"]);
-
-/**
- * Turns every colour in the note grey with inline styles, and returns an undo. A CSS filter
- * on the note would be simpler, but Chromium then prints the whole page as a picture, so
- * text comes out blurry and can't be selected. Images get the filter, in styles.css.
- */
-function greyOut(root: HTMLElement): () => void {
-  const elements = [document.body, root, ...Array.from(root.querySelectorAll<HTMLElement | SVGElement>("*"))];
-  const changes: { el: HTMLElement | SVGElement; property: string; grey: string }[] = [];
-  // Read everything before writing anything, or each write restyles the page for the next read.
-  for (const el of elements) {
-    const style = getComputedStyle(el);
-    for (const property of COLOUR_PROPERTIES) {
-      const grey = toGrey(style.getPropertyValue(property), TEXT_PROPERTIES.has(property));
-      if (grey) changes.push({ el, property, grey });
-    }
-  }
-  const previous = changes.map(({ el, property, grey }) => {
-    const before = { value: el.style.getPropertyValue(property), priority: el.style.getPropertyPriority(property) };
-    el.style.setProperty(property, grey, "important");
-    return before;
-  });
-  return () => {
-    changes.forEach(({ el, property }, i) => {
-      const { value, priority } = previous[i];
-      if (value) el.style.setProperty(property, value, priority);
-      else el.style.removeProperty(property);
-    });
   };
 }
 
