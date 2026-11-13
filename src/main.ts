@@ -10,7 +10,8 @@ const DEFAULT_SETTINGS: ExportSettings = {
   landscape: true,
   printedFontPt: 6,
   marginMm: 5,
-  compact: false,
+  compact: true,
+  printBackground: false,
 };
 
 export default class CheatsheetExporter extends Plugin {
@@ -18,6 +19,8 @@ export default class CheatsheetExporter extends Plugin {
 
   async onload() {
     const saved = (await this.loadData()) as Partial<ExportSettings> | null;
+    // Saves from before printBackground existed stored compact: false, the old default. Move them to the new one.
+    if (saved && !("printBackground" in saved)) delete saved.compact;
     this.settings = { ...DEFAULT_SETTINGS, ...saved };
     this.addCommand({
       id: "export-cheatsheet",
@@ -61,7 +64,7 @@ export default class CheatsheetExporter extends Plugin {
     try {
       const geometry = computeGeometry({ ...settings, gapMm: COLUMN_GAP_MM });
       note = await pendingNote;
-      const rendered = await note.print(geometry, settings.compact);
+      const rendered = await note.print(geometry, settings.compact, settings.printBackground);
       const { pdf, strips: used, sides } = await impose(rendered.pdf, geometry);
 
       const path = normalizePath(`${file.parent?.path ?? ""}/${file.basename} - cheatsheet.pdf`);

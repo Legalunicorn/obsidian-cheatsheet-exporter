@@ -6,6 +6,7 @@ import {
   type App,
   type TFile,
 } from "obsidian";
+import { isDarkColor } from "./color.ts";
 import { STRIP_WIDTH_MM, type Geometry } from "./geometry.ts";
 import type { Measure } from "./recommend.ts";
 
@@ -91,8 +92,16 @@ export class RenderedNote {
     }
   }
 
-  /** Prints the note to a PDF with one strip per page. */
-  async print(g: Geometry, compact: boolean): Promise<{ pdf: Uint8Array; overflowing: number }> {
+  /**
+   * Prints the note to a PDF with one strip per page. Without `printBackground` the paper
+   * stays white, as in Obsidian's own export, while highlights, code and callouts keep
+   * their colours because Obsidian marks the note `print-color-adjust: exact`.
+   */
+  async print(
+    g: Geometry,
+    compact: boolean,
+    printBackground: boolean,
+  ): Promise<{ pdf: Uint8Array; overflowing: number }> {
     this.root.toggleClass("cheatsheet-compact", compact);
     this.setStripHeight(g);
     const font = overrideFontSize();
@@ -106,7 +115,7 @@ export class RenderedNote {
           height: g.stripHeight / MM_PER_INCH,
         },
         margins: { top: 0, bottom: 0, left: 0, right: 0 },
-        printBackground: true,
+        printBackground,
       });
       return { pdf, overflowing };
     } finally {
@@ -142,7 +151,23 @@ function overrideFontSize() {
   };
 }
 
-/** Paper is white even in dark mode, as in Obsidian's own export. Colours resolve on <body>. */
+/**
+ * True when the theme stays dark in light mode, so the sheet prints on a dark page or
+ * with faint text. Runs before the next paint, so the theme switch is never visible.
+ */
+export function themeIsDarkOnly(): boolean {
+  const app = document.querySelector(".app-container");
+  app?.addClass("cheatsheet-measuring");
+  const restoreTheme = forceLightTheme();
+  try {
+    return isDarkColor(getComputedStyle(document.body).backgroundColor);
+  } finally {
+    restoreTheme();
+    app?.removeClass("cheatsheet-measuring");
+  }
+}
+
+/** Prints in the theme's light mode, as in Obsidian's own export. Colours resolve on <body>. */
 function forceLightTheme(): () => void {
   const { body } = document;
   const wasDark = body.hasClass("theme-dark");

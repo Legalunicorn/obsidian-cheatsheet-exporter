@@ -16,7 +16,7 @@ import {
   recommendLayout,
   type Measure,
 } from "./recommend.ts";
-import type { RenderedNote } from "./render.ts";
+import { themeIsDarkOnly, type RenderedNote } from "./render.ts";
 
 /** Measuring a long note takes a while, so wait for a pause in typing. */
 const MEASURE_DELAY_MS = 300;
@@ -27,6 +27,16 @@ export interface ExportSettings {
   printedFontPt: number;
   marginMm: number;
   compact: boolean;
+  printBackground: boolean;
+}
+
+/** A setting description followed by a bold recommendation on its own line. */
+function recommended(description: string, recommendation: string): DocumentFragment {
+  return createFragment((fragment) => {
+    fragment.appendText(description);
+    fragment.createEl("br");
+    fragment.createEl("strong", { text: recommendation });
+  });
 }
 
 interface Fit {
@@ -93,17 +103,6 @@ export class ExportModal extends Modal {
     this.fontWarning = this.contentEl.createDiv("cheatsheet-warning");
     this.addNumber("Outer margin (mm)", "marginMm", 1);
 
-    new Setting(this.contentEl)
-      .setName("Force compact spacing")
-      .setDesc("Remove the margins and padding added by your theme.")
-      .addToggle((toggle) => {
-        toggle.setValue(this.values.compact);
-        toggle.onChange((compact) => {
-          this.values.compact = compact;
-          this.refresh();
-        });
-      });
-
     this.fit = new Setting(this.contentEl)
       .setName("Fit")
       .setDesc("Measuring your note...")
@@ -117,6 +116,40 @@ export class ExportModal extends Modal {
       prepend: true,
     });
     this.fitWarnings = this.contentEl.createDiv("cheatsheet-warning");
+
+    const advanced = this.contentEl.createEl("details", { cls: "cheatsheet-advanced" });
+    advanced.createEl("summary", { text: "Advanced options" });
+
+    new Setting(advanced)
+      .setName("Force compact spacing")
+      .setDesc(recommended("Remove the margins and padding added by your theme.", "Recommended: on."))
+      .addToggle((toggle) => {
+        toggle.setValue(this.values.compact);
+        toggle.onChange((compact) => {
+          this.values.compact = compact;
+          this.refresh();
+        });
+      });
+
+    new Setting(advanced)
+      .setName("Print theme background")
+      .setDesc(
+        recommended("Keep your theme's page colour instead of white paper. Uses more ink.", "Recommended: off."),
+      )
+      .addToggle((toggle) => {
+        toggle.setValue(this.values.printBackground);
+        toggle.onChange((printBackground) => {
+          this.values.printBackground = printBackground;
+        });
+      });
+    if (themeIsDarkOnly()) {
+      this.contentEl.createDiv({
+        cls: "cheatsheet-warning",
+        text:
+          "Your theme has no light mode, so the cheatsheet may print on a dark page or with faint text. " +
+          "Switch to a theme with a light mode before exporting.",
+      });
+    }
 
     new Setting(this.contentEl).addButton((button) =>
       button

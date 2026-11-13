@@ -31,6 +31,12 @@
   font-size: var(--font-ui-small);
 }
 
+.cheatsheet-advanced > summary {
+  padding-block: var(--size-4-2);
+  color: var(--text-muted);
+  cursor: var(--cursor);
+}
+
 .cheatsheet-warning:empty {
   display: none;
 }
@@ -116,8 +122,9 @@
 }
 
 /* Optional toggle: remove the spacing a theme adds. */
+/* 1.15 is about as tight as body text goes before subscripts and math start to collide. */
 .cheatsheet-compact .markdown-preview-view {
-  line-height: 1.2;
+  line-height: 1.15;
 }
 
 /* !important because themes add heading and block margins with more specific rules. */
@@ -126,14 +133,22 @@
 }
 
 .cheatsheet-compact :is(h1, h2, h3, h4, h5, h6) {
-  margin-block: 0.4em 0.1em !important;
+  margin-block: 0.25em 0.05em !important;
+  padding-block: 0 !important;
   line-height: 1.2 !important;
 }
 
 .cheatsheet-compact :is(ul, ol) {
-  padding-inline-start: 1.1em;
+  padding-inline-start: 0.9em !important;
 }
 
+.cheatsheet-compact li {
+  margin-block: 0 !important;
+  padding-block: 0 !important;
+}
+
+/* Cell borders already separate the rows, so cells need almost no vertical padding. */
 .cheatsheet-compact :is(td, th) {
-  padding: 0.1em 0.3em;
+  padding: 0 0.2em !important;
+  line-height: 1.1 !important;
 }
