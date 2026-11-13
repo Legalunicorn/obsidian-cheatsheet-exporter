@@ -6,7 +6,7 @@ import {
   type App,
   type TFile,
 } from "obsidian";
-import { isDarkColor } from "./color.ts";
+import { isDarkColor, toGrey } from "./color.ts";
 import { STRIP_WIDTH_MM, type Geometry } from "./geometry.ts";
 import type { Measure } from "./recommend.ts";
 
@@ -33,6 +33,12 @@ interface ElectronApi {
 
 export function electron(): ElectronApi {
   return (window as unknown as { require(m: "electron"): ElectronApi }).require("electron");
+}
+
+export interface PrintOptions {
+  compact: boolean;
+  printBackground: boolean;
+  greyscale: boolean;
 }
 
 /** A note laid out off-screen, ready to be measured or printed at any settings. */
@@ -97,16 +103,16 @@ export class RenderedNote {
    * stays white, as in Obsidian's own export, while highlights, code and callouts keep
    * their colours because Obsidian marks the note `print-color-adjust: exact`.
    */
-  async print(
-    g: Geometry,
-    compact: boolean,
-    printBackground: boolean,
-  ): Promise<{ pdf: Uint8Array; overflowing: number }> {
+  async print(g: Geometry, options: PrintOptions): Promise<{ pdf: Uint8Array; overflowing: number }> {
+    const { compact, printBackground, greyscale } = options;
     this.root.toggleClass("cheatsheet-compact", compact);
+    this.root.toggleClass("cheatsheet-greyscale", greyscale);
     this.setStripHeight(g);
     const font = overrideFontSize();
     const restoreTheme = forceLightTheme();
     font.set(g.sourceFontPt);
+    // After the theme switch, so the light theme's colours are the ones turned grey.
+    const restoreColours = greyscale ? greyOut(this.root) : () => {};
     try {
       const overflowing = countOverflowing(this.view);
       const pdf = await electron().remote.getCurrentWebContents().printToPDF({
@@ -119,9 +125,15 @@ export class RenderedNote {
       });
       return { pdf, overflowing };
     } finally {
+      restoreColours();
       restoreTheme();
       font.restore();
     }
+  }
+
+  /** Formulas MathJax couldn't read. They show their source as red text, often too wide to fit. */
+  formulaErrors(): number {
+    return this.view.querySelectorAll("mjx-merror").length;
   }
 
   dispose(): void {
@@ -178,6 +190,50 @@ function forceLightTheme(): () => void {
       body.removeClass("theme-light");
       body.addClass("theme-dark");
     }
+  };
+}
+
+const COLOUR_PROPERTIES = [
+  "color",
+  "background-color",
+  "border-top-color",
+  "border-right-color",
+  "border-bottom-color",
+  "border-left-color",
+  "outline-color",
+  "text-decoration-color",
+  "fill",
+  "stroke",
+];
+const TEXT_PROPERTIES = new Set(["color", "text-decoration-color"]);
+
+/**
+ * Turns every colour in the note grey with inline styles, and returns an undo. A CSS filter
+ * on the note would be simpler, but Chromium then prints the whole page as a picture, so
+ * text comes out blurry and can't be selected. Images get the filter, in styles.css.
+ */
+function greyOut(root: HTMLElement): () => void {
+  const elements = [document.body, root, ...Array.from(root.querySelectorAll<HTMLElement | SVGElement>("*"))];
+  const changes: { el: HTMLElement | SVGElement; property: string; grey: string }[] = [];
+  // Read everything before writing anything, or each write restyles the page for the next read.
+  for (const el of elements) {
+    const style = getComputedStyle(el);
+    for (const property of COLOUR_PROPERTIES) {
+      const grey = toGrey(style.getPropertyValue(property), TEXT_PROPERTIES.has(property));
+      if (grey) changes.push({ el, property, grey });
+    }
+  }
+  const previous = changes.map(({ el, property, grey }) => {
+    const before = { value: el.style.getPropertyValue(property), priority: el.style.getPropertyPriority(property) };
+    el.style.setProperty(property, grey, "important");
+    return before;
+  });
+  return () => {
+    changes.forEach(({ el, property }, i) => {
+      const { value, priority } = previous[i];
+      if (value) el.style.setProperty(property, value, priority);
+      else el.style.removeProperty(property);
+    });
   };
 }
 

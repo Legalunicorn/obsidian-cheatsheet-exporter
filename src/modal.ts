@@ -28,6 +28,7 @@ export interface ExportSettings {
   marginMm: number;
   compact: boolean;
   printBackground: boolean;
+  greyscale: boolean;
 }
 
 /** A setting description followed by a bold recommendation on its own line. */
@@ -142,6 +143,21 @@ export class ExportModal extends Modal {
           this.values.printBackground = printBackground;
         });
       });
+
+    new Setting(advanced)
+      .setName("Greyscale")
+      .setDesc(
+        recommended(
+          "Print every colour as a shade of grey. Coloured text is darkened to stay readable.",
+          "Recommended: off.",
+        ),
+      )
+      .addToggle((toggle) => {
+        toggle.setValue(this.values.greyscale);
+        toggle.onChange((greyscale) => {
+          this.values.greyscale = greyscale;
+        });
+      });
     if (themeIsDarkOnly()) {
       this.contentEl.createDiv({
         cls: "cheatsheet-warning",
@@ -239,6 +255,15 @@ export class ExportModal extends Modal {
         const sides = (strips / columns).toFixed(1);
         const fits = strips <= capacity(g);
         const warnings: string[] = [];
+        const errors = note.formulaErrors();
+        if (errors > 0) {
+          const what =
+            errors === 1 ? "1 formula has a LaTeX error and prints" : `${errors} formulas have LaTeX errors and print`;
+          warnings.push(
+            `${what} as red text, which can stop the note fitting. Check in Reading view. ` +
+              "A $$ that isn't on its own line is a common cause.",
+          );
+        }
         if (!fits) {
           warnings.push(`More than one sheet. ${this.suggestion(measure, { columns, landscape, marginMm })}`);
         }

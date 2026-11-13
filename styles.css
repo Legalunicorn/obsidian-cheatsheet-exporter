@@ -112,6 +112,11 @@
   max-height: var(--cheatsheet-strip-height);
 }
 
+/* Images are pictures anyway, so a filter costs nothing. Everything else is greyed in render.ts. */
+.cheatsheet-greyscale :is(img, canvas, video) {
+  filter: grayscale(1);
+}
+
 .cheatsheet-export pre {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
