@@ -30,10 +30,11 @@ export interface ExportSettings {
   printBackground: boolean;
 }
 
-/** A setting description ending in a bold recommendation. */
+/** A setting description followed by a bold recommendation on its own line. */
 function recommended(description: string, recommendation: string): DocumentFragment {
   return createFragment((fragment) => {
-    fragment.appendText(`${description} `);
+    fragment.appendText(description);
+    fragment.createEl("br");
     fragment.createEl("strong", { text: recommendation });
   });
 }
