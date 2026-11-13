@@ -16,7 +16,7 @@ import {
   recommendLayout,
   type Measure,
 } from "./recommend.ts";
-import type { RenderedNote } from "./render.ts";
+import { themeIsDarkOnly, type RenderedNote } from "./render.ts";
 
 /** Measuring a long note takes a while, so wait for a pause in typing. */
 const MEASURE_DELAY_MS = 300;
@@ -27,6 +27,7 @@ export interface ExportSettings {
   printedFontPt: number;
   marginMm: number;
   compact: boolean;
+  printBackground: boolean;
 }
 
 interface Fit {
@@ -103,6 +104,24 @@ export class ExportModal extends Modal {
           this.refresh();
         });
       });
+
+    new Setting(this.contentEl)
+      .setName("Print theme background")
+      .setDesc("Keep your theme's page colour instead of white paper. Uses more ink. Recommended: off.")
+      .addToggle((toggle) => {
+        toggle.setValue(this.values.printBackground);
+        toggle.onChange((printBackground) => {
+          this.values.printBackground = printBackground;
+        });
+      });
+    if (themeIsDarkOnly()) {
+      this.contentEl.createDiv({
+        cls: "cheatsheet-warning",
+        text:
+          "Your theme has no light mode, so the cheatsheet may print on a dark page or with faint text. " +
+          "Switch to a theme with a light mode before exporting.",
+      });
+    }
 
     this.fit = new Setting(this.contentEl)
       .setName("Fit")

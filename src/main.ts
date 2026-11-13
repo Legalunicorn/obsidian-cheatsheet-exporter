@@ -11,6 +11,7 @@ const DEFAULT_SETTINGS: ExportSettings = {
   printedFontPt: 6,
   marginMm: 5,
   compact: false,
+  printBackground: false,
 };
 
 export default class CheatsheetExporter extends Plugin {
@@ -61,7 +62,7 @@ export default class CheatsheetExporter extends Plugin {
     try {
       const geometry = computeGeometry({ ...settings, gapMm: COLUMN_GAP_MM });
       note = await pendingNote;
-      const rendered = await note.print(geometry, settings.compact);
+      const rendered = await note.print(geometry, settings.compact, settings.printBackground);
       const { pdf, strips: used, sides } = await impose(rendered.pdf, geometry);
 
       const path = normalizePath(`${file.parent?.path ?? ""}/${file.basename} - cheatsheet.pdf`);

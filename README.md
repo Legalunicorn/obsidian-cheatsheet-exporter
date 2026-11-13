@@ -32,6 +32,8 @@ Your theme, LaTeX, images and tables are kept, and nothing else needs to be inst
 
 ## Printing
 
+The sheet prints on white paper even if your theme has a coloured background, which saves ink. Turn on **Print theme background** to keep your theme's page colour. Highlights, code and callouts keep their colours either way. A theme with no light mode can print on a dark page or with faint text, so the dialog warns you to switch to a theme with a light mode first.
+
 Print at **actual size**, not "fit to page", or the font size won't match what you chose. For double-sided printing, flip on the short edge for landscape and on the long edge for portrait.
 
 ## If your note doesn't fit
