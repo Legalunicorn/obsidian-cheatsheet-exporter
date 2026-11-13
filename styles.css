@@ -31,6 +31,12 @@
   font-size: var(--font-ui-small);
 }
 
+.cheatsheet-advanced > summary {
+  padding-block: var(--size-4-2);
+  color: var(--text-muted);
+  cursor: var(--cursor);
+}
+
 .cheatsheet-warning:empty {
   display: none;
 }

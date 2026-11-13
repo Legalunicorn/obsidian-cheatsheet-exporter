@@ -30,6 +30,14 @@ export interface ExportSettings {
   printBackground: boolean;
 }
 
+/** A setting description ending in a bold recommendation. */
+function recommended(description: string, recommendation: string): DocumentFragment {
+  return createFragment((fragment) => {
+    fragment.appendText(`${description} `);
+    fragment.createEl("strong", { text: recommendation });
+  });
+}
+
 interface Fit {
   summary: string;
   warnings: string[];
@@ -94,9 +102,26 @@ export class ExportModal extends Modal {
     this.fontWarning = this.contentEl.createDiv("cheatsheet-warning");
     this.addNumber("Outer margin (mm)", "marginMm", 1);
 
-    new Setting(this.contentEl)
+    this.fit = new Setting(this.contentEl)
+      .setName("Fit")
+      .setDesc("Measuring your note...")
+      .addButton((button) => {
+        button.setButtonText("Auto recommend").setDisabled(true);
+        button.onClick(() => void this.applyRecommendation(button));
+        void this.whenMeasurable(button);
+      });
+    this.spinner = this.fit.controlEl.createDiv({
+      cls: "cheatsheet-spinner is-active",
+      prepend: true,
+    });
+    this.fitWarnings = this.contentEl.createDiv("cheatsheet-warning");
+
+    const advanced = this.contentEl.createEl("details", { cls: "cheatsheet-advanced" });
+    advanced.createEl("summary", { text: "Advanced options" });
+
+    new Setting(advanced)
       .setName("Force compact spacing")
-      .setDesc("Remove the margins and padding added by your theme.")
+      .setDesc(recommended("Remove the margins and padding added by your theme.", "Recommended: on."))
       .addToggle((toggle) => {
         toggle.setValue(this.values.compact);
         toggle.onChange((compact) => {
@@ -105,9 +130,11 @@ export class ExportModal extends Modal {
         });
       });
 
-    new Setting(this.contentEl)
+    new Setting(advanced)
       .setName("Print theme background")
-      .setDesc("Keep your theme's page colour instead of white paper. Uses more ink. Recommended: off.")
+      .setDesc(
+        recommended("Keep your theme's page colour instead of white paper. Uses more ink.", "Recommended: off."),
+      )
       .addToggle((toggle) => {
         toggle.setValue(this.values.printBackground);
         toggle.onChange((printBackground) => {
@@ -122,20 +149,6 @@ export class ExportModal extends Modal {
           "Switch to a theme with a light mode before exporting.",
       });
     }
-
-    this.fit = new Setting(this.contentEl)
-      .setName("Fit")
-      .setDesc("Measuring your note...")
-      .addButton((button) => {
-        button.setButtonText("Auto recommend").setDisabled(true);
-        button.onClick(() => void this.applyRecommendation(button));
-        void this.whenMeasurable(button);
-      });
-    this.spinner = this.fit.controlEl.createDiv({
-      cls: "cheatsheet-spinner is-active",
-      prepend: true,
-    });
-    this.fitWarnings = this.contentEl.createDiv("cheatsheet-warning");
 
     new Setting(this.contentEl).addButton((button) =>
       button

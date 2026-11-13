@@ -32,7 +32,7 @@ Your theme, LaTeX, images and tables are kept, and nothing else needs to be inst
 
 ## Printing
 
-The sheet prints on white paper even if your theme has a coloured background, which saves ink. Turn on **Print theme background** to keep your theme's page colour. Highlights, code and callouts keep their colours either way. A theme with no light mode can print on a dark page or with faint text, so the dialog warns you to switch to a theme with a light mode first.
+The sheet prints on white paper even if your theme has a coloured background, which saves ink. Turn on **Print theme background** under **Advanced options** to keep your theme's page colour. Highlights, code and callouts keep their colours either way. A theme with no light mode can print on a dark page or with faint text, so the dialog warns you to switch to a theme with a light mode first.
 
 Print at **actual size**, not "fit to page", or the font size won't match what you chose. For double-sided printing, flip on the short edge for landscape and on the long edge for portrait.
 
@@ -42,12 +42,12 @@ The plugin warns you but never changes your content to make it fit:
 
 - A note too long for one sheet still exports in full, and the notice says how many sides it needs.
 - Formulas or tables wider than their column get cut off on paper, and the dialog and notice say how many. **Use fewer columns or a smaller font.**
-- **Force compact spacing** removes the margins and padding your theme adds, which often saves a lot of space, depending on your Obsidian theme and custom styling.
+- **Force compact spacing**, on by default under **Advanced options**, removes the margins and padding your theme adds, which often saves a lot of space, depending on your Obsidian theme and custom styling.
 
 ## Tips
 
 - Start with Auto recommend, which picks the largest font that fits.
-- Turn on Force compact spacing before lowering the font.
+- Keep Force compact spacing on before lowering the font.
 - More columns make lines narrower, which suits short lines but not wide formulas or tables.
 - At 6 pt, keep the note under about 18,000 characters (shown in Obsidian's status bar).
 - Split long formulas across lines with `aligned`:
