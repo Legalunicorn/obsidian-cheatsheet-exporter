@@ -6,9 +6,10 @@ import {
   type App,
   type TFile,
 } from "obsidian";
-import { isDarkColor } from "./color.ts";
+import { electron } from "./electron.ts";
 import { STRIP_WIDTH_MM, type Geometry } from "./geometry.ts";
 import type { Measure } from "./recommend.ts";
+import { forceLightTheme, greyOut, withAppHidden } from "./theme.ts";
 
 const MM_PER_INCH = 25.4;
 const PX_PER_MM = 96 / MM_PER_INCH;
@@ -19,20 +20,10 @@ const FONT_SIZE_VARIABLE = "--font-text-size";
 /** Blocks that can't split leave a gap at the bottom of a strip, so flow needs a bit more room. */
 const PAGINATION_WASTE = 1.05;
 
-interface ElectronApi {
-  remote: {
-    getCurrentWebContents(): {
-      printToPDF(options: object): Promise<Uint8Array>;
-    };
-    shell: {
-      /** Resolves to an error message, or "" on success. */
-      openPath(path: string): Promise<string>;
-    };
-  };
-}
-
-export function electron(): ElectronApi {
-  return (window as unknown as { require(m: "electron"): ElectronApi }).require("electron");
+export interface PrintOptions {
+  compact: boolean;
+  printBackground: boolean;
+  greyscale: boolean;
 }
 
 /** A note laid out off-screen, ready to be measured or printed at any settings. */
@@ -66,28 +57,23 @@ export class RenderedNote {
     }
   }
 
-  /**
-   * Gives `fn` a way to measure the note at any geometry. It all runs before the next
-   * paint, so the temporary font size is never visible in the app.
-   */
+  /** Gives `fn` a way to measure the note at any geometry, without the app ever showing the changes. */
   probe<T>(compact: boolean, fn: (measure: Measure) => T): T {
     this.root.toggleClass("cheatsheet-compact", compact);
     const font = overrideFontSize();
-    // The app behind would otherwise be restyled for every measurement.
-    const app = document.querySelector(".app-container");
-    app?.addClass("cheatsheet-measuring");
     try {
-      return fn((g) => {
-        this.setStripHeight(g);
-        font.set(g.sourceFontPt);
-        const height = this.view.getBoundingClientRect().height * PAGINATION_WASTE;
-        return {
-          strips: height / (g.stripHeight * PX_PER_MM),
-          overflowing: countOverflowing(this.view),
-        };
-      });
+      return withAppHidden(() =>
+        fn((g) => {
+          this.setStripHeight(g);
+          font.set(g.sourceFontPt);
+          const height = this.view.getBoundingClientRect().height * PAGINATION_WASTE;
+          return {
+            strips: height / (g.stripHeight * PX_PER_MM),
+            overflowing: countOverflowing(this.view),
+          };
+        }),
+      );
     } finally {
-      app?.removeClass("cheatsheet-measuring");
       font.restore();
     }
   }
@@ -97,16 +83,14 @@ export class RenderedNote {
    * stays white, as in Obsidian's own export, while highlights, code and callouts keep
    * their colours because Obsidian marks the note `print-color-adjust: exact`.
    */
-  async print(
-    g: Geometry,
-    compact: boolean,
-    printBackground: boolean,
-  ): Promise<{ pdf: Uint8Array; overflowing: number }> {
-    this.root.toggleClass("cheatsheet-compact", compact);
+  async print(g: Geometry, options: PrintOptions): Promise<{ pdf: Uint8Array; overflowing: number }> {
+    this.root.toggleClass("cheatsheet-compact", options.compact);
     this.setStripHeight(g);
     const font = overrideFontSize();
-    const restoreTheme = forceLightTheme();
     font.set(g.sourceFontPt);
+    const restoreTheme = forceLightTheme();
+    // After the theme switch, so the light theme's colours are the ones turned grey.
+    const restoreColours = options.greyscale ? greyOut(this.root) : () => {};
     try {
       const overflowing = countOverflowing(this.view);
       const pdf = await electron().remote.getCurrentWebContents().printToPDF({
@@ -115,13 +99,19 @@ export class RenderedNote {
           height: g.stripHeight / MM_PER_INCH,
         },
         margins: { top: 0, bottom: 0, left: 0, right: 0 },
-        printBackground,
+        printBackground: options.printBackground,
       });
       return { pdf, overflowing };
     } finally {
+      restoreColours();
       restoreTheme();
       font.restore();
     }
+  }
+
+  /** Formulas MathJax couldn't read. They show their source as red text, often too wide to fit. */
+  formulaErrors(): number {
+    return this.view.querySelectorAll("mjx-merror").length;
   }
 
   dispose(): void {
@@ -131,6 +121,15 @@ export class RenderedNote {
 
   private setStripHeight(g: Geometry): void {
     this.root.setCssProps({ "--cheatsheet-strip-height": `${g.stripHeight}mm` });
+  }
+}
+
+/** Disposes a note once it has rendered. Nothing is left to clean up if rendering failed. */
+export async function discard(pendingNote: Promise<RenderedNote>): Promise<void> {
+  try {
+    (await pendingNote).dispose();
+  } catch {
+    // Rendering failed and already cleaned up after itself.
   }
 }
 
@@ -148,36 +147,6 @@ function overrideFontSize() {
       html.setCssStyles({ fontSize: previousRoot });
       body.setCssProps({ [FONT_SIZE_VARIABLE]: previousVariable });
     },
-  };
-}
-
-/**
- * True when the theme stays dark in light mode, so the sheet prints on a dark page or
- * with faint text. Runs before the next paint, so the theme switch is never visible.
- */
-export function themeIsDarkOnly(): boolean {
-  const app = document.querySelector(".app-container");
-  app?.addClass("cheatsheet-measuring");
-  const restoreTheme = forceLightTheme();
-  try {
-    return isDarkColor(getComputedStyle(document.body).backgroundColor);
-  } finally {
-    restoreTheme();
-    app?.removeClass("cheatsheet-measuring");
-  }
-}
-
-/** Prints in the theme's light mode, as in Obsidian's own export. Colours resolve on <body>. */
-function forceLightTheme(): () => void {
-  const { body } = document;
-  const wasDark = body.hasClass("theme-dark");
-  body.removeClass("theme-dark");
-  body.addClass("theme-light");
-  return () => {
-    if (wasDark) {
-      body.removeClass("theme-light");
-      body.addClass("theme-dark");
-    }
   };
 }
 

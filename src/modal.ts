@@ -16,28 +16,14 @@ import {
   recommendLayout,
   type Measure,
 } from "./recommend.ts";
-import { themeIsDarkOnly, type RenderedNote } from "./render.ts";
+import { discard, type RenderedNote } from "./render.ts";
+import type { ExportSettings } from "./settings.ts";
+import { themeIsDarkOnly } from "./theme.ts";
 
 /** Measuring a long note takes a while, so wait for a pause in typing. */
 const MEASURE_DELAY_MS = 300;
 
-export interface ExportSettings {
-  columns: number;
-  landscape: boolean;
-  printedFontPt: number;
-  marginMm: number;
-  compact: boolean;
-  printBackground: boolean;
-}
-
-/** A setting description followed by a bold recommendation on its own line. */
-function recommended(description: string, recommendation: string): DocumentFragment {
-  return createFragment((fragment) => {
-    fragment.appendText(description);
-    fragment.createEl("br");
-    fragment.createEl("strong", { text: recommendation });
-  });
-}
+type ToggleKey = "compact" | "printBackground" | "greyscale";
 
 interface Fit {
   summary: string;
@@ -119,29 +105,19 @@ export class ExportModal extends Modal {
 
     const advanced = this.contentEl.createEl("details", { cls: "cheatsheet-advanced" });
     advanced.createEl("summary", { text: "Advanced options" });
+    this.addToggle(advanced, "compact", "Force compact spacing", {
+      description: "Remove the margins and padding added by your theme.",
+      recommendation: "Recommended: on.",
+    });
+    this.addToggle(advanced, "printBackground", "Print theme background", {
+      description: "Keep your theme's page colour instead of white paper. Uses more ink.",
+      recommendation: "Recommended: off.",
+    });
+    this.addToggle(advanced, "greyscale", "Greyscale", {
+      description: "Print every colour as a shade of grey. Coloured text is darkened to stay readable.",
+      recommendation: "Recommended: off.",
+    });
 
-    new Setting(advanced)
-      .setName("Force compact spacing")
-      .setDesc(recommended("Remove the margins and padding added by your theme.", "Recommended: on."))
-      .addToggle((toggle) => {
-        toggle.setValue(this.values.compact);
-        toggle.onChange((compact) => {
-          this.values.compact = compact;
-          this.refresh();
-        });
-      });
-
-    new Setting(advanced)
-      .setName("Print theme background")
-      .setDesc(
-        recommended("Keep your theme's page colour instead of white paper. Uses more ink.", "Recommended: off."),
-      )
-      .addToggle((toggle) => {
-        toggle.setValue(this.values.printBackground);
-        toggle.onChange((printBackground) => {
-          this.values.printBackground = printBackground;
-        });
-      });
     if (themeIsDarkOnly()) {
       this.contentEl.createDiv({
         cls: "cheatsheet-warning",
@@ -194,6 +170,30 @@ export class ExportModal extends Modal {
     return component;
   }
 
+  private addToggle(
+    parent: HTMLElement,
+    key: ToggleKey,
+    name: string,
+    { description, recommendation }: { description: string; recommendation: string },
+  ) {
+    const desc = createFragment((fragment) => {
+      fragment.appendText(description);
+      fragment.createEl("br");
+      fragment.createEl("strong", { text: recommendation });
+    });
+    new Setting(parent)
+      .setName(name)
+      .setDesc(desc)
+      .addToggle((toggle) => {
+        toggle.setValue(this.values[key]);
+        toggle.onChange((value) => {
+          this.values[key] = value;
+          // Only spacing changes how much fits.
+          if (key === "compact") this.refresh();
+        });
+      });
+  }
+
   private refresh() {
     this.showInstantFeedback();
     if (!this.note) return;
@@ -238,14 +238,11 @@ export class ExportModal extends Modal {
         const { strips, overflowing } = measure(g);
         const sides = (strips / columns).toFixed(1);
         const fits = strips <= capacity(g);
-        const warnings: string[] = [];
-        if (!fits) {
-          warnings.push(`More than one sheet. ${this.suggestion(measure, { columns, landscape, marginMm })}`);
-        }
-        if (overflowing > 0) {
-          const what = overflowing === 1 ? "1 formula or table gets" : `${overflowing} formulas or tables get`;
-          warnings.push(`${what} cut off. Try fewer columns or a smaller font.`);
-        }
+        const warnings = [
+          formulaErrorWarning(note.formulaErrors()),
+          fits ? "" : `More than one sheet. ${this.suggestion(measure, { columns, landscape, marginMm })}`,
+          cutOffWarning(overflowing),
+        ].filter(Boolean);
         return {
           summary: fits ? `Fits on one sheet: about ${sides} of 2 sides.` : `About ${sides} sides.`,
           warnings,
@@ -306,14 +303,23 @@ export class ExportModal extends Modal {
   onClose() {
     this.measureSoon.cancel();
     this.contentEl.empty();
-    if (!this.exported) void this.discardNote();
+    if (!this.exported) void discard(this.pendingNote);
   }
+}
 
-  private async discardNote() {
-    try {
-      (await this.pendingNote).dispose();
-    } catch {
-      // Rendering failed, so there is nothing to clean up.
-    }
-  }
+/** Empty when every formula rendered. */
+function formulaErrorWarning(errors: number): string {
+  if (errors === 0) return "";
+  const what = errors === 1 ? "1 formula has a LaTeX error and prints" : `${errors} formulas have LaTeX errors and print`;
+  return (
+    `${what} as red text, which can stop the note fitting. Check in Reading view. ` +
+    "A $$ that isn't on its own line is a common cause."
+  );
+}
+
+/** Empty when nothing runs past its column. */
+function cutOffWarning(overflowing: number): string {
+  if (overflowing === 0) return "";
+  const what = overflowing === 1 ? "1 formula or table gets" : `${overflowing} formulas or tables get`;
+  return `${what} cut off. Try fewer columns or a smaller font.`;
 }

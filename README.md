@@ -28,11 +28,11 @@ Your theme, LaTeX, images and tables are kept, and nothing else needs to be inst
 
 4. Pick your desired orientation and columns per side.
 5. Adjust the font size until it fits, or press **Auto recommend** to fill in the layout that allows the largest font with nothing cut off. This could take a few seconds for large notes. I recommend at least 6 pt, otherwise the words are barely visible when printed.
-6. Press **Export**. The PDF is saved next to your note as `<note name> - cheatsheet.pdf` and opens in your default PDF app.
+6. Press **Export** and choose where to save the PDF. The save dialog starts next to your note, named `<note name> - cheatsheet.pdf`. The PDF then opens in your default PDF app.
 
 ## Printing
 
-The sheet prints on white paper even if your theme has a coloured background, which saves ink. Turn on **Print theme background** under **Advanced options** to keep your theme's page colour. Highlights, code and callouts keep their colours either way. A theme with no light mode can print on a dark page or with faint text, so the dialog warns you to switch to a theme with a light mode first.
+The sheet prints on white paper even if your theme has a coloured background, which saves ink. Turn on **Print theme background** under **Advanced options** to keep your theme's page colour. Highlights, code and callouts keep their colours either way, unless you turn on **Greyscale**, which prints every colour as a shade of grey. A theme with no light mode can print on a dark page or with faint text, so the dialog warns you to switch to a theme with a light mode first.
 
 Print at **actual size**, not "fit to page", or the font size won't match what you chose. For double-sided printing, flip on the short edge for landscape and on the long edge for portrait.
 
@@ -70,7 +70,7 @@ The plugin warns you but never changes your content to make it fit:
 
 Desktop only, because PDF export uses Electron. It has been tested on Windows.
 
-The plugin makes no network requests and has no accounts, ads or telemetry. It reads the note you export and writes the PDF into your vault. It doesn't read or write files outside your vault.
+The plugin makes no network requests and has no accounts, ads or telemetry. It reads the note you export and writes the PDF where you choose in the save dialog. That can be outside your vault, and it's the only file the plugin writes there. It never reads files outside your vault.
 
 ## Install manually
 

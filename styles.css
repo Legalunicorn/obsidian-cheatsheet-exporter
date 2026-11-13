@@ -112,6 +112,11 @@
   max-height: var(--cheatsheet-strip-height);
 }
 
+/* Images are pictures anyway, so a filter costs nothing. Everything else is greyed in theme.ts. */
+.cheatsheet-greyscale :is(img, canvas, video) {
+  filter: grayscale(1);
+}
+
 .cheatsheet-export pre {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -121,7 +126,7 @@
   max-width: 100%;
 }
 
-/* Optional toggle: remove the spacing a theme adds. */
+/* Force compact spacing: remove the spacing a theme adds. */
 /* 1.15 is about as tight as body text goes before subscripts and math start to collide. */
 .cheatsheet-compact .markdown-preview-view {
   line-height: 1.15;
