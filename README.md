@@ -61,7 +61,8 @@ The plugin warns you but never changes your content to make it fit:
   $$
   ```
 
-- Keep tables to 2–3 columns, or use a list instead.
+- In thin columns, keep tables to 2 columns. Turn wider tables into headings with bullets.
+- In thin columns, enlarge images by giving them a width, like `![[diagram.png|800]]` for the full column.
 - Avoid deeply nested bullet points, since each level takes up column width.
 - Use H4 headings or bold text instead of H1 and H2.
 - Keep code lines short if your theme doesn't wrap code blocks.
