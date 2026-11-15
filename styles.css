@@ -143,8 +143,26 @@
   line-height: 1.2 !important;
 }
 
+/*
+ * Obsidian indents list items with a margin (3ch, then 2.25em per nested level), not the
+ * list with padding. Indent each level by only as much as its marker needs.
+ */
 .cheatsheet-compact :is(ul, ol) {
-  padding-inline-start: 0.9em !important;
+  padding-inline-start: 0 !important;
+}
+
+/* The bullet sits 0.8em left of the text. Task checkboxes hang further out, so they keep Obsidian's indent. */
+.cheatsheet-compact ul > li:not(.task-list-item) {
+  margin-inline-start: 0.9em !important;
+}
+
+/* Room for "9. ", and for "10. " in lists that reach it. */
+.cheatsheet-compact ol > li {
+  margin-inline-start: 1.1em !important;
+}
+
+.cheatsheet-compact ol:has(> li:nth-child(10)) > li {
+  margin-inline-start: 1.6em !important;
 }
 
 .cheatsheet-compact li {
