@@ -171,7 +171,9 @@
 }
 
 /* Cell borders already separate the rows, so cells need almost no vertical padding. */
+/* Obsidian gives every cell at least 6ch, so a column of short values like ✅ wastes width. */
 .cheatsheet-compact :is(td, th) {
+  min-width: 0 !important;
   padding: 0 0.2em !important;
   line-height: 1.1 !important;
 }
