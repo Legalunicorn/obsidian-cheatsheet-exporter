@@ -4,7 +4,7 @@ Export your Obsidian note as a dense, double-sided A4 cheat sheet PDF for exams,
 
 Your theme, LaTeX, images and tables are kept, and nothing else needs to be installed.
 
-## Demo
+## Short Demo
 
 [![Watch the demo on YouTube](https://img.youtube.com/vi/6KE7icNV5ho/maxresdefault.jpg)](https://youtu.be/6KE7icNV5ho)
 
@@ -17,14 +17,6 @@ Your theme, LaTeX, images and tables are kept, and nothing else needs to be inst
 3. Open the command palette with `Ctrl + P` on Windows or `Cmd + P` on macOS, then search for and run **Cheatsheet Exporter: Export current note as cheatsheet**.
 
    ![Command palette](docs/run_command.png)
-
-   Alternatively, click the three dots in the top right of the note:
-
-   ![Three dots menu](docs/three_dots.png)
-
-   then choose **Export as cheatsheet...**:
-
-   ![Export as cheatsheet menu item](docs/export_button.png)
 
 4. Pick your desired orientation and columns per side.
 5. Adjust the font size until it fits, or press **Auto recommend** to fill in the layout that allows the largest font with nothing cut off. It goes up to 10 pt and avoids columns too thin for about 40 characters per line. This could take a few seconds for large notes. I recommend at least 6 pt, otherwise the words are barely visible when printed.
@@ -50,17 +42,7 @@ The plugin warns you but never changes your content to make it fit:
 - Keep Force compact spacing on before lowering the font.
 - More columns make lines narrower, which suits short lines but not wide formulas or tables.
 - At 6 pt, keep the note under about 18,000 characters (shown in Obsidian's status bar).
-- Split long formulas across lines with `aligned`:
-
-  ```latex
-  $$
-  \begin{aligned}
-  \operatorname{Var}(X) &= E[(X-\mu)^2] \\
-                        &= E[X^2] - (E[X])^2
-  \end{aligned}
-  $$
-  ```
-
+- Split long formulas across lines with `aligned`.
 - In thin columns, keep tables to 2 columns. Turn wider tables into headings with bullets.
 - In thin columns, enlarge images by giving them a width, like `![[diagram.png|800]]` for the full column.
 - Avoid deeply nested bullet points, since each level takes up column width.
