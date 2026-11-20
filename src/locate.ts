@@ -31,9 +31,14 @@ const PREVIEW_CHARS = 40;
 /** A table's delimiter row, like `|---|:--:|`, possibly inside a callout or quote. */
 const DELIMITER_ROW = /^(\s*>)*\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/;
 
+/** The ">" markers and indentation before a line's content in a callout, quote or list. */
+const LINE_PREFIX = /^\s*(>\s*)*/;
+const FENCE = /^(`{3,}|~{3,})/;
+
 /**
  * Locates each cut-off block. Blocks are matched in order, each searched for after the
- * previous one, so a formula that appears twice is placed at the right copy.
+ * previous one, so a formula that appears twice is placed at the right copy. Only text
+ * Obsidian renders is searched: frontmatter, code and comments are skipped.
  */
 export function locateCutOffs(source: string, headings: Heading[], blocks: Block[]): CutOff[] {
   const text = new SourceText(source);
@@ -75,6 +80,37 @@ function preview(block: Block): string {
   return text.length > PREVIEW_CHARS ? `${text.slice(0, PREVIEW_CHARS - 1).trimEnd()}…` : text;
 }
 
+/**
+ * Where inline code or a comment starting at `i` ends, or `i` when none starts there.
+ * Inline code needs a closing run of as many backticks in the same paragraph, so a stray
+ * backtick hides only itself.
+ */
+function spanEnd(source: string, i: number): number {
+  for (const [open, close] of [
+    ["%%", "%%"],
+    ["<!--", "-->"],
+  ]) {
+    if (!source.startsWith(open, i)) continue;
+    const end = source.indexOf(close, i + open.length);
+    return end === -1 ? source.length : end + close.length;
+  }
+  if (source[i] !== "`") return i;
+  let run = i;
+  while (source[run] === "`") run++;
+  const blankLine = /\n[ \t>]*\n/g;
+  blankLine.lastIndex = run;
+  const paragraphEnd = blankLine.exec(source)?.index ?? source.length;
+  for (let j = run; j < paragraphEnd; ) {
+    const tick = source.indexOf("`", j);
+    if (tick === -1 || tick >= paragraphEnd) break;
+    let after = tick;
+    while (source[after] === "`") after++;
+    if (after - tick === run - i) return after;
+    j = after;
+  }
+  return run;
+}
+
 /** The note's text, searchable with whitespace ignored, since MathJax doesn't keep it exactly. */
 class SourceText {
   private readonly lines: string[];
@@ -83,6 +119,9 @@ class SourceText {
   private readonly compact: string;
   private readonly origin: number[] = [];
 
+  /** 1 for each character Obsidian doesn't render as maths or tables. */
+  private readonly hidden: Uint8Array;
+
   constructor(source: string) {
     this.lines = source.split("\n");
     let offset = 0;
@@ -90,11 +129,13 @@ class SourceText {
       this.lineStarts.push(offset);
       offset += line.length + 1;
     }
+    this.hidden = this.unrendered(source, this.frontmatterEnd());
     let compact = "";
     let lineStart = true;
     for (let i = 0; i < source.length; i++) {
       const char = source[i];
       if (char === "\n") lineStart = true;
+      if (this.hidden[i]) continue;
       // A formula in a callout or quote has "> " before each of its lines.
       if (/\s/.test(char) || (lineStart && char === ">")) continue;
       lineStart = false;
@@ -118,10 +159,51 @@ class SourceText {
   /** Where the next table's header row starts, at or after `from`. */
   findTable(from: number): number | null {
     for (let line = this.lineOf(from); line + 1 < this.lines.length; line++) {
-      if (this.lineStarts[line] < from) continue;
+      if (this.lineStarts[line] < from || this.hidden[this.lineStarts[line]]) continue;
       if (this.lines[line].includes("|") && DELIMITER_ROW.test(this.lines[line + 1])) return this.lineStarts[line];
     }
     return null;
+  }
+
+  /**
+   * Where the frontmatter ends: after the "---" closing a block that opens on the first line.
+   * Obsidian hides this block even when its YAML is invalid and it reports no frontmatter.
+   */
+  private frontmatterEnd(): number {
+    if (this.lines[0]?.trimEnd() !== "---") return 0;
+    for (let i = 1; i < this.lines.length; i++) {
+      if (this.lines[i].trimEnd() === "---") return this.lineStarts[i] + this.lines[i].length;
+    }
+    return 0;
+  }
+
+  /** Frontmatter, fenced code blocks, inline code, and %% and HTML comments. */
+  private unrendered(source: string, bodyStart: number): Uint8Array {
+    const hidden = new Uint8Array(source.length);
+    hidden.fill(1, 0, bodyStart);
+
+    // Code blocks, which may sit in callouts and lists. Unclosed ones run to the end, as in Obsidian.
+    let fence: string | null = null;
+    this.lines.forEach((line, i) => {
+      const start = this.lineStarts[i];
+      if (start < bodyStart) return;
+      const content = line.replace(LINE_PREFIX, "");
+      const marker = FENCE.exec(content)?.[1];
+      if (fence === null && !marker) return;
+      hidden.fill(1, start, start + line.length + 1);
+      if (fence === null) fence = marker ?? null;
+      else if (marker?.[0] === fence[0] && marker.length >= fence.length && !content.slice(marker.length).trim()) {
+        fence = null;
+      }
+    });
+
+    // Inline code and comments, outside code blocks.
+    for (let i = bodyStart; i < source.length; ) {
+      const end = hidden[i] ? i : spanEnd(source, i);
+      hidden.fill(1, i, end);
+      i = Math.max(end, i + 1);
+    }
+    return hidden;
   }
 
   /** 0-based line of an offset. */

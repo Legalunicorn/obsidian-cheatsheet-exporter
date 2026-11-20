@@ -99,3 +99,39 @@ test("long previews are shortened", () => {
   assert.equal(cutOff.preview.length, 40);
   assert.ok(cutOff.preview.endsWith("…"));
 });
+
+// Text Obsidian doesn't render as maths or tables must never be matched, or the line points at the wrong place.
+const longFormula = "E[X] = \\sum_x x\\, f(x)";
+const lineOf = (text: string) => locateCutOffs(text, [], [formula(longFormula, true)])[0].line;
+
+test("a formula quoted in frontmatter is skipped, even when the YAML is invalid", () => {
+  assert.equal(lineOf(`---\nsummary: '$${longFormula}$'\n---\n$$${longFormula}$$`), 4);
+  // "\s" is not a valid escape in double-quoted YAML, so Obsidian reports no frontmatter but still hides it.
+  assert.equal(lineOf(`---\r\nsummary: "$${longFormula}$"\r\n---\r\n$$${longFormula}$$`), 4);
+});
+
+test("a --- that doesn't open the note isn't frontmatter", () => {
+  assert.equal(lineOf(`Intro\n---\n$$${longFormula}$$\n---`), 3);
+});
+
+test("a formula in inline code is skipped", () => {
+  assert.equal(lineOf(`Write \`$${longFormula}$\` for this.\n\n$$${longFormula}$$`), 3);
+});
+
+test("a formula in a fenced code block is skipped, including fences inside callouts", () => {
+  assert.equal(lineOf(`\`\`\`latex\n$$${longFormula}$$\n\`\`\`\n$$${longFormula}$$`), 4);
+  assert.equal(lineOf(`> [!example]\n> ~~~\n> $${longFormula}$\n> ~~~\n$$${longFormula}$$`), 5);
+});
+
+test("a formula in an Obsidian or HTML comment is skipped", () => {
+  assert.equal(lineOf(`%% $${longFormula}$ %%\n<!-- $${longFormula}$ -->\n$$${longFormula}$$`), 3);
+});
+
+test("a table inside a code fence is skipped", () => {
+  const text = "```\n| a | b |\n|---|---|\n```\n| x | y |\n|---|---|";
+  assert.equal(locateCutOffs(text, [], [table(["x", "y"], true)])[0].line, 5);
+});
+
+test("an unclosed inline backtick doesn't hide the rest of the note", () => {
+  assert.equal(lineOf(`A stray \` backtick.\n\n$$${longFormula}$$`), 3);
+});
