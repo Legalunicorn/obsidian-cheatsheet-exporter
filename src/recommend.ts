@@ -1,4 +1,4 @@
-import { COLUMN_GAP_MM, capacity, computeGeometry, type Geometry } from "./geometry.ts";
+import { COLUMN_GAP_MM, capacity, computeGeometry, type Geometry, type Paper, type Sides } from "./geometry.ts";
 
 export const MAX_COLUMNS = 8;
 export const MIN_FONT_PT = 5;
@@ -14,10 +14,16 @@ export interface Measurement {
 
 export type Measure = (g: Geometry) => Measurement;
 
-export interface Layout {
+/** What the user fixes before choosing a layout: the paper, how many sides, and the margin. */
+export interface Sheet {
+  paper: Paper;
+  sides: Sides;
+  marginMm: number;
+}
+
+export interface Layout extends Sheet {
   columns: number;
   landscape: boolean;
-  marginMm: number;
 }
 
 type Fit = "fits" | "too-long" | "cut-off";
@@ -79,12 +85,12 @@ const distanceFromIdeal = ({ columns, landscape }: Layout) =>
  */
 export function recommendLayout(
   measure: Measure,
-  marginMm: number,
+  sheet: Sheet,
 ): (Layout & { printedFontPt: number }) | null {
   let best: (Layout & { printedFontPt: number }) | null = null;
   for (const landscape of [true, false]) {
     for (let columns = 1; columns <= MAX_COLUMNS; columns++) {
-      const layout = { columns, landscape, marginMm };
+      const layout = { ...sheet, columns, landscape };
       const limit = fontLimit(layout);
       const floor: number = best ? best.printedFontPt : MIN_FONT_PT;
       if (floor > limit) break; // More columns only lower the limit.

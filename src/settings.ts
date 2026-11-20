@@ -1,6 +1,10 @@
 /** Export settings, remembered between exports. No Obsidian imports, so tests can run them. */
 
+import type { Paper, Sides } from "./geometry.ts";
+
 export interface ExportSettings {
+  paper: Paper;
+  sides: Sides;
   columns: number;
   landscape: boolean;
   printedFontPt: number;
@@ -11,6 +15,8 @@ export interface ExportSettings {
 }
 
 export const DEFAULT_SETTINGS: ExportSettings = {
+  paper: "a4",
+  sides: 2,
   columns: 4,
   landscape: true,
   printedFontPt: 6,

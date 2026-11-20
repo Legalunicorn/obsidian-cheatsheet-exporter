@@ -3,7 +3,7 @@ import { columnSlot, type Geometry } from "./geometry.ts";
 
 const PT_PER_MM = 72 / 25.4;
 
-/** Lays each page of the strip PDF out as a column on A4 sides. */
+/** Lays each page of the strip PDF out as a column on the sides of the sheet. */
 export async function impose(
   stripPdf: Uint8Array,
   g: Geometry,

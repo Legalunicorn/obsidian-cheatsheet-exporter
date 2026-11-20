@@ -3,7 +3,7 @@
   "name": "Cheatsheet Exporter",
   "version": "0.1.7",
   "minAppVersion": "1.15.0",
-  "description": "Export a note as a dense, double-sided A4 cheat sheet PDF for exams, made for college and university students.",
+  "description": "Export a note as a dense one- or two-sided A4 or Letter cheat sheet PDF for exams, made for college and university students.",
   "author": "Legalunicorn",
   "isDesktopOnly": true
 }
