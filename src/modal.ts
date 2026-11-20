@@ -17,6 +17,7 @@ import {
   type Layout,
   type Measure,
 } from "./recommend.ts";
+import type { CutOff } from "./locate.ts";
 import { discard, type RenderedNote } from "./render.ts";
 import type { ExportSettings } from "./settings.ts";
 import { themeIsDarkOnly } from "./theme.ts";
@@ -25,10 +26,13 @@ import { themeIsDarkOnly } from "./theme.ts";
 const MEASURE_DELAY_MS = 300;
 
 type ToggleKey = "compact" | "printBackground" | "greyscale" | "dividers";
+type NumberKey = "printedFontPt" | "marginMm";
 
 interface Fit {
   summary: string;
   warnings: string[];
+  /** Listed under the cut-off warning, which comes last. */
+  cutOffs?: CutOff[];
 }
 
 export class ExportModal extends Modal {
@@ -46,6 +50,11 @@ export class ExportModal extends Modal {
   private fit!: Setting;
   private fitWarnings!: HTMLElement;
   private spinner!: HTMLElement;
+  /** Whether "Show where" is open, kept while the fit is measured again. */
+  private showingCutOffs = false;
+  private exportButton!: ButtonComponent;
+  /** Number fields whose text isn't a usable value. The last usable value stays in `values`. */
+  private readonly invalid = new Set<NumberKey>();
   private readonly measureSoon = debounce(() => this.updateFit(), MEASURE_DELAY_MS, true);
 
   constructor(
@@ -106,9 +115,9 @@ export class ExportModal extends Modal {
 
     this.preview = this.contentEl.createDiv("cheatsheet-preview");
 
-    this.font = this.addNumber("Printed font size (pt)", "printedFontPt", 0.5);
+    this.font = this.addNumber("Printed font size (pt)", "printedFontPt", 0.5, (pt) => pt > 0);
     this.fontWarning = this.contentEl.createDiv("cheatsheet-warning");
-    this.addNumber("Outer margin (mm)", "marginMm", 1);
+    this.addNumber("Outer margin (mm)", "marginMm", 1, (mm) => mm >= 0);
 
     this.fit = new Setting(this.contentEl)
       .setName("Fit")
@@ -151,16 +160,18 @@ export class ExportModal extends Modal {
       });
     }
 
-    new Setting(this.contentEl).addButton((button) =>
+    new Setting(this.contentEl).addButton((button) => {
+      this.exportButton = button;
       button
         .setButtonText("Export")
         .setCta()
         .onClick(() => {
+          if (this.problem()) return;
           this.exported = true;
           this.close();
           this.onExport(this.values);
-        }),
-    );
+        });
+    });
 
     this.refresh();
   }
@@ -177,7 +188,12 @@ export class ExportModal extends Modal {
     this.updateFit();
   }
 
-  private addNumber(name: string, key: "printedFontPt" | "marginMm", step: number): TextComponent {
+  private addNumber(
+    name: string,
+    key: NumberKey,
+    step: number,
+    isValid: (value: number) => boolean,
+  ): TextComponent {
     let component!: TextComponent;
     new Setting(this.contentEl).setName(name).addText((text) => {
       component = text;
@@ -187,7 +203,9 @@ export class ExportModal extends Modal {
       text.setValue(String(this.values[key]));
       text.onChange((value) => {
         const parsed = Number(value);
-        if (value !== "" && Number.isFinite(parsed) && parsed >= 0) this.values[key] = parsed;
+        const valid = value.trim() !== "" && Number.isFinite(parsed) && isValid(parsed);
+        if (valid) this.values[key] = parsed;
+        this.invalid[valid ? "delete" : "add"](key);
         this.refresh();
       });
     });
@@ -226,8 +244,25 @@ export class ExportModal extends Modal {
     this.measureSoon();
   }
 
+  /** Why the current options can't be exported, or "" when they can. */
+  private problem(): string {
+    if (this.invalid.has("printedFontPt")) return "Enter a font size above 0 pt.";
+    if (this.invalid.has("marginMm")) return "Enter a margin of 0 mm or more.";
+    try {
+      computeGeometry({ ...this.values, gapMm: COLUMN_GAP_MM });
+      return "";
+    } catch (error) {
+      return (error as Error).message;
+    }
+  }
+
   /** Everything that doesn't need the note measured. */
   private showInstantFeedback() {
+    // The reason shows as the fit straight away, without waiting for a measurement.
+    const problem = this.problem();
+    this.exportButton.setDisabled(problem !== "");
+    if (problem) this.showFit({ summary: problem, warnings: [] });
+
     const paper = PAPER_SIZES[this.values.paper];
     this.preview.toggleClass("is-landscape", this.values.landscape);
     this.preview.setCssProps({
@@ -239,7 +274,7 @@ export class ExportModal extends Modal {
     for (let i = 0; i < this.values.columns; i++) this.preview.createDiv();
 
     const { printedFontPt } = this.values;
-    const tooSmall = printedFontPt > 0 && printedFontPt < SMALL_FONT_PT;
+    const tooSmall = !this.invalid.has("printedFontPt") && printedFontPt < SMALL_FONT_PT;
     this.fontWarning.setText(tooSmall ? `Text under ${SMALL_FONT_PT} pt can be hard to read on paper.` : "");
   }
 
@@ -248,12 +283,30 @@ export class ExportModal extends Modal {
     this.setMeasuring(false);
   }
 
-  private showFit({ summary, warnings }: Fit) {
+  private showFit({ summary, warnings, cutOffs = [] }: Fit) {
     this.fit.setDesc(summary);
     this.fitWarnings.empty();
     if (warnings.length === 0) return;
     const list = this.fitWarnings.createEl("ul");
-    for (const warning of warnings) list.createEl("li", { text: warning });
+    let item: HTMLElement | undefined;
+    for (const warning of warnings) item = list.createEl("li", { text: warning });
+    if (item && cutOffs.length > 0) this.showCutOffs(item, cutOffs);
+  }
+
+  /** A collapsed list of where each cut-off formula or table is, by line and closest heading. */
+  private showCutOffs(parent: HTMLElement, cutOffs: CutOff[]) {
+    const details = parent.createEl("details", { cls: "cheatsheet-cutoffs" });
+    details.open = this.showingCutOffs;
+    details.addEventListener("toggle", () => (this.showingCutOffs = details.open));
+    details.createEl("summary", { text: "Show where" });
+    const list = details.createEl("ul");
+    for (const { embed, line, heading, preview } of cutOffs) {
+      const item = list.createEl("li");
+      const place = embed !== null ? `In embedded note "${embed}"` : line === null ? "Line not found" : `Line ${line}`;
+      const where = [place, heading].filter(Boolean).join(" · ");
+      item.createSpan({ text: `${where}: ` });
+      item.createEl("code", { text: preview });
+    }
   }
 
   private setMeasuring(measuring: boolean) {
@@ -261,12 +314,14 @@ export class ExportModal extends Modal {
   }
 
   private describeFit(note: RenderedNote): Fit {
-    const { paper, sides, columns, landscape, marginMm, printedFontPt, compact } = this.values;
-    if (printedFontPt <= 0) return { summary: "Enter a font size to see the fit.", warnings: [] };
+    const { paper, sides, columns, landscape, marginMm, compact } = this.values;
+    const problem = this.problem();
+    if (problem) return { summary: problem, warnings: [] };
     try {
       return note.probe(compact, (measure) => {
         const g = computeGeometry({ ...this.values, gapMm: COLUMN_GAP_MM });
         const { strips, overflowing } = measure(g);
+        const cutOffs = overflowing > 0 ? note.cutOffs() : [];
         const used = (strips / columns).toFixed(1);
         const fits = strips <= capacity(g);
         const layout = { paper, sides, columns, landscape, marginMm };
@@ -278,6 +333,7 @@ export class ExportModal extends Modal {
         return {
           summary: fits ? `Fits on ${oneSheet(sides)}: about ${used} of ${sidesText(sides)}.` : `About ${used} sides.`,
           warnings,
+          cutOffs,
         };
       });
     } catch (error) {
@@ -328,6 +384,7 @@ export class ExportModal extends Modal {
     this.orientation.setValue(best.landscape ? "landscape" : "portrait");
     this.columns.setValue(String(best.columns));
     this.font.setValue(String(best.printedFontPt));
+    this.invalid.delete("printedFontPt");
     this.showInstantFeedback();
     this.updateFit();
   }
