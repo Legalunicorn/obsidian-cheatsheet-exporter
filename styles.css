@@ -45,6 +45,23 @@
   padding-inline-start: 1.2em;
 }
 
+/* Where each cut-off formula or table is. Scrolls, so a long list doesn't stretch the dialog. */
+.cheatsheet-cutoffs > summary {
+  color: var(--text-muted);
+  cursor: var(--cursor);
+}
+
+.cheatsheet-cutoffs > ul {
+  max-height: 9em;
+  overflow-y: auto;
+  margin-block-start: var(--size-4-1);
+}
+
+.cheatsheet-cutoffs code {
+  font-size: var(--font-ui-smaller);
+  overflow-wrap: anywhere;
+}
+
 /* Only transform is animated, so it keeps turning while measuring holds up the window. */
 .cheatsheet-spinner {
   visibility: hidden;
