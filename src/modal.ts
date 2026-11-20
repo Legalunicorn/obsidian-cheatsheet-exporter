@@ -19,7 +19,7 @@ import {
 } from "./recommend.ts";
 import type { CutOff } from "./cutoff.ts";
 import { discard, type RenderedNote } from "./render.ts";
-import type { ExportSettings } from "./settings.ts";
+import { exportProblem, type ExportSettings } from "./settings.ts";
 import { themeIsDarkOnly } from "./theme.ts";
 
 /** Measuring a long note takes a while, so wait for a pause in typing. */
@@ -246,14 +246,7 @@ export class ExportModal extends Modal {
 
   /** Why the current options can't be exported, or "" when they can. */
   private problem(): string {
-    if (this.invalid.has("printedFontPt")) return "Enter a font size above 0 pt.";
-    if (this.invalid.has("marginMm")) return "Enter a margin of 0 mm or more.";
-    try {
-      computeGeometry({ ...this.values, gapMm: COLUMN_GAP_MM });
-      return "";
-    } catch (error) {
-      return (error as Error).message;
-    }
+    return exportProblem(this.values, this.invalid);
   }
 
   /** Everything that doesn't need the note measured. */
@@ -274,7 +267,7 @@ export class ExportModal extends Modal {
     for (let i = 0; i < this.values.columns; i++) this.preview.createDiv();
 
     const { printedFontPt } = this.values;
-    const tooSmall = !this.invalid.has("printedFontPt") && printedFontPt < SMALL_FONT_PT;
+    const tooSmall = !this.invalid.has("printedFontPt") && printedFontPt > 0 && printedFontPt < SMALL_FONT_PT;
     this.fontWarning.setText(tooSmall ? `Text under ${SMALL_FONT_PT} pt can be hard to read on paper.` : "");
   }
 
