@@ -56,13 +56,14 @@ export default class CheatsheetExporter extends Plugin {
   ): Promise<void> {
     let progress: Notice | undefined;
     try {
+      // Before the save dialog, so impossible options fail before you pick a file.
+      const geometry = computeGeometry({ ...settings, gapMm: COLUMN_GAP_MM });
       const path = await chooseSavePath(this.app, file);
       if (path === null) return;
       progress = new Notice("Exporting cheatsheet...", 0);
 
-      const geometry = computeGeometry({ ...settings, gapMm: COLUMN_GAP_MM });
       const printed = await (await pendingNote).print(geometry, settings);
-      const sheet = await impose(printed.pdf, geometry);
+      const sheet = await impose(printed.pdf, geometry, { dividers: settings.dividers });
       await writePdf(this.app, path, sheet.pdf);
 
       new Notice(describeExport(geometry, settings, sheet, printed.overflowing), NOTICE_MS);

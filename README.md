@@ -1,6 +1,6 @@
 # Cheatsheet Exporter
 
-Export your Obsidian note as a dense, double-sided A4 cheat sheet PDF for exams, made for college and university students.
+Export your Obsidian note as a dense cheat sheet PDF for exams, made for college and university students. It fits on one A4 or US Letter sheet, printed on one side or both.
 
 Your theme, LaTeX, images and tables are kept, and nothing else needs to be installed.
 
@@ -16,22 +16,22 @@ Your theme, LaTeX, images and tables are kept, and nothing else needs to be inst
 
    ![Command palette](docs/run_command.png)
 
-4. Pick your desired orientation and columns per side.
-5. Adjust the font size until it fits, or press **Auto recommend** to fill in the layout that allows the largest font with nothing cut off. It goes up to 10 pt and avoids columns too thin for about 40 characters per line. This could take a few seconds for large notes. I recommend at least 6 pt, otherwise the words are barely visible when printed.
+4. Pick your paper (A4 or US Letter), whether your exam allows one side or both, then the orientation and columns per side.
+5. Adjust the font size until it fits, or press **Auto recommend** to fill in the orientation, columns and font that allow the largest font with nothing cut off, on the paper and sides you chose. It goes up to 10 pt and avoids columns too thin for about 40 characters per line. This could take a few seconds for large notes. I recommend at least 6 pt, otherwise the words are barely visible when printed.
 6. Press **Export** and choose where to save the PDF. The save dialog starts next to your note, named `<note name> - cheatsheet.pdf`. The PDF then opens in your default PDF app.
 
 ## Printing
 
-The sheet prints on white paper even if your theme has a coloured background, which saves ink. Turn on **Print theme background** under **Advanced options** to keep your theme's page colour. Highlights, code and callouts keep their colours either way, unless you turn on **Greyscale**, which prints every colour as a shade of grey. A theme with no light mode can print on a dark page or with faint text, so the dialog warns you to switch to a theme with a light mode first.
+The sheet prints on white paper even if your theme has a coloured background, which saves ink. Turn on **Print theme background** under **Advanced options** to keep your theme's page colour. Highlights, code and callouts keep their colours either way, unless you turn on **Greyscale**, which prints every colour as a shade of grey. A theme with no light mode can print on a dark page or with faint text, so the dialog warns you to switch to a theme with a light mode first. Turn on **Column dividers** to draw a thin grey line between columns, which can make dense sheets easier to scan.
 
-Print at **actual size**, not "fit to page", or the font size won't match what you chose. For double-sided printing, flip on the short edge for landscape and on the long edge for portrait.
+Print at **actual size**, not "fit to page", on the paper you picked, or the font size won't match what you chose. For double-sided printing, flip on the short edge for landscape and on the long edge for portrait.
 
 ## If your note doesn't fit
 
 The plugin warns you but never changes your content to make it fit:
 
-- A note too long for one sheet still exports in full, and the notice says how many sides it needs.
-- Formulas or tables wider than their column get cut off on paper, and the dialog and notice say how many. **Use fewer columns or a smaller font.**
+- A note too long for one sheet, or one side when single-sided, still exports in full, and the notice says how many sides it needs.
+- Formulas or tables wider than their column get cut off on paper, and the dialog and notice say how many. Open **Show where** under the warning to see the closest heading and the start of each one. **Use fewer columns or a smaller font**, or rewrite the few that don't fit.
 - **Force compact spacing**, on by default under **Advanced options**, removes the margins and padding your theme adds, which often saves a lot of space, depending on your Obsidian theme and custom styling.
 
 ## Tips

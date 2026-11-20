@@ -8,6 +8,7 @@ import {
 } from "obsidian";
 import { electron } from "./electron.ts";
 import { STRIP_WIDTH_MM, type Geometry } from "./geometry.ts";
+import { describeCutOffs, type CutOff, type Item } from "./cutoff.ts";
 import type { Measure } from "./recommend.ts";
 import { forceLightTheme, greyOut, withAppHidden } from "./theme.ts";
 
@@ -109,6 +110,32 @@ export class RenderedNote {
     }
   }
 
+  /**
+   * The formulas and tables running past the column edge at the layout last measured or
+   * printed, each with the closest heading above it in the rendered note.
+   */
+  cutOffs(): CutOff[] {
+    const cutOff = cutOffElements(this.view);
+    const items: Item[] = [];
+    // Each embed on the page gets its own scope, even when the same note is embedded twice.
+    const scopes = new Map<Element, number>();
+    for (const el of Array.from(this.view.querySelectorAll<HTMLElement>(`${HEADINGS}, ${WIDE_BLOCKS}`))) {
+      const container = el.closest(".internal-embed");
+      if (container && !scopes.has(container)) scopes.set(container, scopes.size + 1);
+      const where = { embed: container?.getAttribute("src") ?? null, scope: container ? scopes.get(container)! : 0 };
+      const text = (node: Element) => node.textContent?.trim() ?? "";
+      if (el.matches(HEADINGS)) {
+        items.push({ kind: "heading", text: text(el), ...where });
+      } else if (cutOff.has(el) && el.tagName === "TABLE") {
+        const header = el.querySelector("tr")?.querySelectorAll("th, td") ?? [];
+        items.push({ kind: "table", header: Array.from(header, text), ...where });
+      } else if (cutOff.has(el)) {
+        items.push({ kind: "formula", latex: el.getAttribute("data-latex") ?? "", ...where });
+      }
+    }
+    return describeCutOffs(items);
+  }
+
   /** Formulas MathJax couldn't read. They show their source as red text, often too wide to fit. */
   formulaErrors(): number {
     return this.view.querySelectorAll("mjx-merror").length;
@@ -150,12 +177,28 @@ function overrideFontSize() {
   };
 }
 
-/** Counts formulas and tables running past the column edge, which get cut off on paper. */
-function countOverflowing(view: HTMLElement): number {
+/** Blocks that can't wrap, so they get cut off on paper when wider than their column. */
+const WIDE_BLOCKS = "table, mjx-math";
+const HEADINGS = "h1, h2, h3, h4, h5, h6";
+
+/**
+ * Formulas and tables running past the column edge, which get cut off on paper. A formula
+ * in a cut-off table is left out, since it's part of that table's problem.
+ */
+function cutOffElements(view: HTMLElement): Set<Element> {
   const edge = view.getBoundingClientRect().right;
-  return Array.from(view.querySelectorAll("table, mjx-math")).filter(
-    (el) => el.getBoundingClientRect().right > edge + 0.5,
-  ).length;
+  const wide = new Set(
+    Array.from(view.querySelectorAll(WIDE_BLOCKS)).filter((el) => el.getBoundingClientRect().right > edge + 0.5),
+  );
+  for (const el of wide) {
+    const table = el.parentElement?.closest("table");
+    if (table && wide.has(table)) wide.delete(el);
+  }
+  return wide;
+}
+
+function countOverflowing(view: HTMLElement): number {
+  return cutOffElements(view).size;
 }
 
 async function readBody(app: App, file: TFile): Promise<string> {
