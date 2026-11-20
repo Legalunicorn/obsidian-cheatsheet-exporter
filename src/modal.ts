@@ -7,13 +7,14 @@ import {
   type DropdownComponent,
   type TextComponent,
 } from "obsidian";
-import { COLUMN_GAP_MM, capacity, computeGeometry } from "./geometry.ts";
+import { COLUMN_GAP_MM, PAPER_SIZES, capacity, computeGeometry, type Paper, type Sides } from "./geometry.ts";
 import {
   MAX_COLUMNS,
   MIN_FONT_PT,
   SMALL_FONT_PT,
   largestFont,
   recommendLayout,
+  type Layout,
   type Measure,
 } from "./recommend.ts";
 import { discard, type RenderedNote } from "./render.ts";
@@ -61,6 +62,26 @@ export class ExportModal extends Modal {
 
   onOpen() {
     this.setTitle("Export cheatsheet");
+
+    new Setting(this.contentEl).setName("Paper").addDropdown((dropdown) => {
+      dropdown.addOption("a4", "A4");
+      dropdown.addOption("letter", "US Letter");
+      dropdown.setValue(this.values.paper);
+      dropdown.onChange((value) => {
+        this.values.paper = value as Paper;
+        this.refresh();
+      });
+    });
+
+    new Setting(this.contentEl).setName("Sides").addDropdown((dropdown) => {
+      dropdown.addOption("2", "Double-sided");
+      dropdown.addOption("1", "Single-sided");
+      dropdown.setValue(String(this.values.sides));
+      dropdown.onChange((value) => {
+        this.values.sides = Number(value) as Sides;
+        this.refresh();
+      });
+    });
 
     new Setting(this.contentEl).setName("Orientation").addDropdown((dropdown) => {
       this.orientation = dropdown;
@@ -203,7 +224,13 @@ export class ExportModal extends Modal {
 
   /** Everything that doesn't need the note measured. */
   private showInstantFeedback() {
+    const paper = PAPER_SIZES[this.values.paper];
     this.preview.toggleClass("is-landscape", this.values.landscape);
+    this.preview.setCssProps({
+      "--cheatsheet-sheet-ratio": this.values.landscape
+        ? `${paper.long} / ${paper.short}`
+        : `${paper.short} / ${paper.long}`,
+    });
     this.preview.empty();
     for (let i = 0; i < this.values.columns; i++) this.preview.createDiv();
 
@@ -230,21 +257,22 @@ export class ExportModal extends Modal {
   }
 
   private describeFit(note: RenderedNote): Fit {
-    const { columns, landscape, marginMm, printedFontPt, compact } = this.values;
+    const { paper, sides, columns, landscape, marginMm, printedFontPt, compact } = this.values;
     if (printedFontPt <= 0) return { summary: "Enter a font size to see the fit.", warnings: [] };
     try {
       return note.probe(compact, (measure) => {
         const g = computeGeometry({ ...this.values, gapMm: COLUMN_GAP_MM });
         const { strips, overflowing } = measure(g);
-        const sides = (strips / columns).toFixed(1);
+        const used = (strips / columns).toFixed(1);
         const fits = strips <= capacity(g);
+        const layout = { paper, sides, columns, landscape, marginMm };
         const warnings = [
           formulaErrorWarning(note.formulaErrors()),
-          fits ? "" : `More than one sheet. ${this.suggestion(measure, { columns, landscape, marginMm })}`,
+          fits ? "" : `More than ${oneSheet(sides)}. ${this.suggestion(measure, layout)}`,
           cutOffWarning(overflowing),
         ].filter(Boolean);
         return {
-          summary: fits ? `Fits on one sheet: about ${sides} of 2 sides.` : `About ${sides} sides.`,
+          summary: fits ? `Fits on ${oneSheet(sides)}: about ${used} of ${sidesText(sides)}.` : `About ${used} sides.`,
           warnings,
         };
       });
@@ -253,7 +281,7 @@ export class ExportModal extends Modal {
     }
   }
 
-  private suggestion(measure: Measure, layout: Parameters<typeof largestFont>[1]): string {
+  private suggestion(measure: Measure, layout: Layout): string {
     const font = largestFont(measure, layout, { allowCutOff: true });
     return font === null
       ? `It won't fit with these columns, even at ${MIN_FONT_PT} pt.`
@@ -264,7 +292,7 @@ export class ExportModal extends Modal {
   private async applyRecommendation(button: ButtonComponent) {
     if (!this.note) return;
     const note = this.note;
-    const { marginMm, compact } = this.values;
+    const { paper, sides, marginMm, compact } = this.values;
     this.measureSoon.cancel();
     button.setDisabled(true);
     this.setMeasuring(true);
@@ -274,7 +302,7 @@ export class ExportModal extends Modal {
 
     let best: ReturnType<typeof recommendLayout>;
     try {
-      best = note.probe(compact, (measure) => recommendLayout(measure, marginMm));
+      best = note.probe(compact, (measure) => recommendLayout(measure, { paper, sides, marginMm }));
     } catch (error) {
       this.showFit({ summary: (error as Error).message, warnings: [] });
       this.setMeasuring(false);
@@ -285,7 +313,7 @@ export class ExportModal extends Modal {
     if (!best) {
       this.showFit({
         summary: "Auto recommend found no layout.",
-        warnings: [`No layout fits this note on one sheet at ${MIN_FONT_PT} pt or larger.`],
+        warnings: [`No layout fits this note on ${oneSheet(sides)} at ${MIN_FONT_PT} pt or larger.`],
       });
       this.setMeasuring(false);
       return;
@@ -305,6 +333,15 @@ export class ExportModal extends Modal {
     this.contentEl.empty();
     if (!this.exported) void discard(this.pendingNote);
   }
+}
+
+/** What one cheatsheet is: a single side, or both sides of a sheet. */
+function oneSheet(sides: Sides): string {
+  return sides === 1 ? "one side" : "one sheet";
+}
+
+function sidesText(sides: Sides): string {
+  return sides === 1 ? "1 side" : `${sides} sides`;
 }
 
 /** Empty when every formula rendered. */

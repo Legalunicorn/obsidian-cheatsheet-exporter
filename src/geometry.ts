@@ -1,6 +1,12 @@
 /** Layout maths. All lengths are millimetres. No Obsidian or PDF imports. */
 
-export const A4 = { short: 210, long: 297 };
+export type Paper = "a4" | "letter";
+export type Sides = 1 | 2;
+
+export const PAPER_SIZES: Record<Paper, { short: number; long: number }> = {
+  a4: { short: 210, long: 297 },
+  letter: { short: 215.9, long: 279.4 },
+};
 
 /** Width every strip is rendered at, before being scaled down onto the sheet. */
 export const STRIP_WIDTH_MM = 210;
@@ -8,6 +14,8 @@ export const STRIP_WIDTH_MM = 210;
 export const COLUMN_GAP_MM = 2;
 
 export interface GeometryInput {
+  paper: Paper;
+  sides: Sides;
   columns: number;
   landscape: boolean;
   printedFontPt: number;
@@ -16,6 +24,7 @@ export interface GeometryInput {
 }
 
 export interface Geometry {
+  sides: Sides;
   sheetWidth: number;
   sheetHeight: number;
   columns: number;
@@ -35,8 +44,9 @@ export function computeGeometry(input: GeometryInput): Geometry {
   if (!Number.isInteger(columns) || columns < 1) {
     throw new Error("Columns must be a whole number of at least 1.");
   }
-  const sheetWidth = landscape ? A4.long : A4.short;
-  const sheetHeight = landscape ? A4.short : A4.long;
+  const paper = PAPER_SIZES[input.paper];
+  const sheetWidth = landscape ? paper.long : paper.short;
+  const sheetHeight = landscape ? paper.short : paper.long;
   const columnWidth =
     (sheetWidth - 2 * input.marginMm - (columns - 1) * input.gapMm) / columns;
   const columnHeight = sheetHeight - 2 * input.marginMm;
@@ -45,6 +55,7 @@ export function computeGeometry(input: GeometryInput): Geometry {
   }
   const scale = columnWidth / STRIP_WIDTH_MM;
   return {
+    sides: input.sides,
     sheetWidth,
     sheetHeight,
     columns,
@@ -69,7 +80,7 @@ export function columnSlot(g: Geometry, index: number) {
   };
 }
 
-/** A cheatsheet is one sheet of paper, so two sides. */
+/** How many strips fit on one sheet of paper, printed on one side or both. */
 export function capacity(g: Geometry): number {
-  return 2 * g.columns;
+  return g.sides * g.columns;
 }

@@ -7,8 +7,9 @@ import { impose } from "../src/impose.ts";
 const close = (actual: number, expected: number) =>
   assert.ok(Math.abs(actual - expected) < 1e-6, `${actual} != ${expected}`);
 
-const edgeToEdge = { printedFontPt: 6, marginMm: 0, gapMm: 0 };
-const landscape4 = { columns: 4, landscape: true, printedFontPt: 6, marginMm: 5, gapMm: 2 };
+const a4Double = { paper: "a4", sides: 2 } as const;
+const edgeToEdge = { ...a4Double, printedFontPt: 6, marginMm: 0, gapMm: 0 };
+const landscape4 = { ...a4Double, columns: 4, landscape: true, printedFontPt: 6, marginMm: 5, gapMm: 2 };
 
 test("4 landscape columns match A7 width on A4", () => {
   const g = computeGeometry({ ...edgeToEdge, columns: 4, landscape: true });
@@ -45,6 +46,19 @@ test("margins and gaps come out of the columns", () => {
   close(g.columnHeight, 200);
 });
 
+test("Letter paper is wider and shorter than A4", () => {
+  const g = computeGeometry({ ...edgeToEdge, paper: "letter", columns: 4, landscape: true });
+  close(g.sheetWidth, 279.4);
+  close(g.sheetHeight, 215.9);
+  close(g.columnWidth, 69.85);
+  close(g.columnHeight, 215.9);
+});
+
+test("a single-sided sheet holds one side of columns", () => {
+  const g = computeGeometry({ ...landscape4, sides: 1 });
+  assert.equal(capacity(g), 4);
+});
+
 test("strips fill columns left to right, then the next side", () => {
   const g = computeGeometry(landscape4);
   assert.equal(columnSlot(g, 3).side, 0);
@@ -68,4 +82,14 @@ test("impose produces A4 sides and rounds partial sides up", async () => {
   assert.equal(out.getPageCount(), 2);
   assert.ok(Math.abs(out.getPage(0).getWidth() - 841.89) < 0.01);
   assert.ok(Math.abs(out.getPage(0).getHeight() - 595.28) < 0.01);
+});
+
+test("impose produces Letter sides for Letter paper", async () => {
+  const g = computeGeometry({ ...landscape4, paper: "letter" });
+  const doc = await PDFDocument.create();
+  doc.addPage([595, 1684]).drawRectangle({ width: 10, height: 10 });
+
+  const out = await PDFDocument.load((await impose(await doc.save(), g)).pdf);
+  assert.ok(Math.abs(out.getPage(0).getWidth() - 792) < 0.01);
+  assert.ok(Math.abs(out.getPage(0).getHeight() - 612) < 0.01);
 });
