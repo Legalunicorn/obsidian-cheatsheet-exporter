@@ -17,6 +17,7 @@ import {
   type Layout,
   type Measure,
 } from "./recommend.ts";
+import type { CutOff } from "./locate.ts";
 import { discard, type RenderedNote } from "./render.ts";
 import type { ExportSettings } from "./settings.ts";
 import { themeIsDarkOnly } from "./theme.ts";
@@ -29,6 +30,8 @@ type ToggleKey = "compact" | "printBackground" | "greyscale";
 interface Fit {
   summary: string;
   warnings: string[];
+  /** Listed under the cut-off warning, which comes last. */
+  cutOffs?: CutOff[];
 }
 
 export class ExportModal extends Modal {
@@ -46,6 +49,8 @@ export class ExportModal extends Modal {
   private fit!: Setting;
   private fitWarnings!: HTMLElement;
   private spinner!: HTMLElement;
+  /** Whether "Show where" is open, kept while the fit is measured again. */
+  private showingCutOffs = false;
   private readonly measureSoon = debounce(() => this.updateFit(), MEASURE_DELAY_MS, true);
 
   constructor(
@@ -244,12 +249,30 @@ export class ExportModal extends Modal {
     this.setMeasuring(false);
   }
 
-  private showFit({ summary, warnings }: Fit) {
+  private showFit({ summary, warnings, cutOffs = [] }: Fit) {
     this.fit.setDesc(summary);
     this.fitWarnings.empty();
     if (warnings.length === 0) return;
     const list = this.fitWarnings.createEl("ul");
-    for (const warning of warnings) list.createEl("li", { text: warning });
+    let item: HTMLElement | undefined;
+    for (const warning of warnings) item = list.createEl("li", { text: warning });
+    if (item && cutOffs.length > 0) this.showCutOffs(item, cutOffs);
+  }
+
+  /** A collapsed list of where each cut-off formula or table is, by line and closest heading. */
+  private showCutOffs(parent: HTMLElement, cutOffs: CutOff[]) {
+    const details = parent.createEl("details", { cls: "cheatsheet-cutoffs" });
+    details.open = this.showingCutOffs;
+    details.addEventListener("toggle", () => (this.showingCutOffs = details.open));
+    details.createEl("summary", { text: "Show where" });
+    const list = details.createEl("ul");
+    for (const { embed, line, heading, preview } of cutOffs) {
+      const item = list.createEl("li");
+      const place = embed !== null ? `In embedded note "${embed}"` : line === null ? "Line not found" : `Line ${line}`;
+      const where = [place, heading].filter(Boolean).join(" · ");
+      item.createSpan({ text: `${where}: ` });
+      item.createEl("code", { text: preview });
+    }
   }
 
   private setMeasuring(measuring: boolean) {
@@ -263,6 +286,7 @@ export class ExportModal extends Modal {
       return note.probe(compact, (measure) => {
         const g = computeGeometry({ ...this.values, gapMm: COLUMN_GAP_MM });
         const { strips, overflowing } = measure(g);
+        const cutOffs = overflowing > 0 ? note.cutOffs() : [];
         const used = (strips / columns).toFixed(1);
         const fits = strips <= capacity(g);
         const layout = { paper, sides, columns, landscape, marginMm };
@@ -274,6 +298,7 @@ export class ExportModal extends Modal {
         return {
           summary: fits ? `Fits on ${oneSheet(sides)}: about ${used} of ${sidesText(sides)}.` : `About ${used} sides.`,
           warnings,
+          cutOffs,
         };
       });
     } catch (error) {
