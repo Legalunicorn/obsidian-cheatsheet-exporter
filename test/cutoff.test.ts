@@ -2,9 +2,20 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { describeCutOffs, type Item } from "../src/cutoff.ts";
 
-const heading = (text: string, embed: string | null = null): Item => ({ kind: "heading", text, embed });
-const formula = (latex: string, embed: string | null = null): Item => ({ kind: "formula", latex, embed });
-const table = (header: string[]): Item => ({ kind: "table", header, embed: null });
+const scope = (embed: string | null) => (embed === null ? 0 : 1);
+const heading = (text: string, embed: string | null = null): Item => ({
+  kind: "heading",
+  text,
+  embed,
+  scope: scope(embed),
+});
+const formula = (latex: string, embed: string | null = null): Item => ({
+  kind: "formula",
+  latex,
+  embed,
+  scope: scope(embed),
+});
+const table = (header: string[]): Item => ({ kind: "table", header, embed: null, scope: 0 });
 
 test("each cut-off gets the closest heading above it", () => {
   assert.deepEqual(describeCutOffs([heading("Basics"), formula("a = b"), heading("Bayes"), table(["x", "y"])]), [
@@ -28,6 +39,17 @@ test("an embed's headings label only its own cut-offs", () => {
     { embed: "Lecture 2", heading: "Lecture 2 intro", preview: "f(x,y)" },
     { embed: null, heading: "Combined", preview: "e = \\lim" },
   ]);
+});
+
+test("each copy of a note embedded twice keeps its own headings", () => {
+  const copy = (scope: number): Item[] => [
+    { kind: "formula", latex: "early", embed: "Lecture 2", scope },
+    { kind: "heading", text: "Later heading", embed: "Lecture 2", scope },
+  ];
+  assert.deepEqual(
+    describeCutOffs([...copy(1), ...copy(2)]).map((c) => c.heading),
+    [null, null],
+  );
 });
 
 test("previews collapse whitespace and are shortened", () => {

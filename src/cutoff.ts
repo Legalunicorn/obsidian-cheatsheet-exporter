@@ -15,6 +15,8 @@ export type Item = (
 ) & {
   /** The note it's embedded from, or null when it's in this note. */
   embed: string | null;
+  /** Which part of the page it's in: 0 for this note, or one number per embed on the page. */
+  scope: number;
 };
 
 export interface CutOff {
@@ -28,15 +30,16 @@ export interface CutOff {
 const PREVIEW_CHARS = 40;
 
 export function describeCutOffs(items: Item[]): CutOff[] {
-  // Headings are tracked per note, so an embed's headings don't label what follows the embed.
-  const headings = new Map<string | null, string>();
+  // Headings are tracked per scope, so an embed's headings label neither what follows the
+  // embed nor another copy of the same note.
+  const headings = new Map<number, string>();
   const cutOffs: CutOff[] = [];
   for (const item of items) {
     if (item.kind === "heading") {
-      headings.set(item.embed, item.text);
+      headings.set(item.scope, item.text);
       continue;
     }
-    cutOffs.push({ embed: item.embed, heading: headings.get(item.embed) ?? null, preview: preview(item) });
+    cutOffs.push({ embed: item.embed, heading: headings.get(item.scope) ?? null, preview: preview(item) });
   }
   return cutOffs;
 }

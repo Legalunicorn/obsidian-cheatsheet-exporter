@@ -117,16 +117,20 @@ export class RenderedNote {
   cutOffs(): CutOff[] {
     const cutOff = cutOffElements(this.view);
     const items: Item[] = [];
+    // Each embed on the page gets its own scope, even when the same note is embedded twice.
+    const scopes = new Map<Element, number>();
     for (const el of Array.from(this.view.querySelectorAll<HTMLElement>(`${HEADINGS}, ${WIDE_BLOCKS}`))) {
-      const embed = el.closest(".internal-embed")?.getAttribute("src") ?? null;
+      const container = el.closest(".internal-embed");
+      if (container && !scopes.has(container)) scopes.set(container, scopes.size + 1);
+      const where = { embed: container?.getAttribute("src") ?? null, scope: container ? scopes.get(container)! : 0 };
       const text = (node: Element) => node.textContent?.trim() ?? "";
       if (el.matches(HEADINGS)) {
-        items.push({ kind: "heading", text: text(el), embed });
+        items.push({ kind: "heading", text: text(el), ...where });
       } else if (cutOff.has(el) && el.tagName === "TABLE") {
         const header = el.querySelector("tr")?.querySelectorAll("th, td") ?? [];
-        items.push({ kind: "table", header: Array.from(header, text), embed });
+        items.push({ kind: "table", header: Array.from(header, text), ...where });
       } else if (cutOff.has(el)) {
-        items.push({ kind: "formula", latex: el.getAttribute("data-latex") ?? "", embed });
+        items.push({ kind: "formula", latex: el.getAttribute("data-latex") ?? "", ...where });
       }
     }
     return describeCutOffs(items);
