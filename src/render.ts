@@ -8,6 +8,7 @@ import {
 } from "obsidian";
 import { electron } from "./electron.ts";
 import { STRIP_WIDTH_MM, type Geometry } from "./geometry.ts";
+import { locateCutOffs, type Block, type CutOff, type Heading } from "./locate.ts";
 import type { Measure } from "./recommend.ts";
 import { forceLightTheme, greyOut, withAppHidden } from "./theme.ts";
 
@@ -31,6 +32,9 @@ export class RenderedNote {
   private readonly root: HTMLElement;
   private readonly view: HTMLElement;
   private readonly component: Component;
+  /** The note's whole text and headings, to say where cut-off blocks are. */
+  private source = "";
+  private headings: Heading[] = [];
 
   private constructor(root: HTMLElement, view: HTMLElement, component: Component) {
     this.root = root;
@@ -47,7 +51,11 @@ export class RenderedNote {
     const note = new RenderedNote(root, view, component);
     try {
       await loadMathJax();
-      await MarkdownRenderer.render(app, await readBody(app, file), view, file.path, component);
+      note.source = await app.vault.cachedRead(file);
+      const cache = app.metadataCache.getFileCache(file);
+      note.headings = (cache?.headings ?? []).map((h) => ({ line: h.position.start.line, text: h.heading }));
+      const bodyStart = cache?.frontmatterPosition?.end.offset ?? 0;
+      await MarkdownRenderer.render(app, note.source.slice(bodyStart), view, file.path, component);
       await waitUntilSettled(view);
       await finishRenderMath();
       return note;
@@ -109,6 +117,20 @@ export class RenderedNote {
     }
   }
 
+  /** Where the formulas and tables running past the column edge are, at the layout last measured or printed. */
+  cutOffs(): CutOff[] {
+    const cutOff = cutOffElements(this.view);
+    const blocks = Array.from(this.view.querySelectorAll<HTMLElement>(WIDE_BLOCKS), (el): Block => {
+      const where = { cutOff: cutOff.has(el), embed: el.closest(".internal-embed")?.getAttribute("src") ?? null };
+      if (el.tagName === "TABLE") {
+        const header = el.querySelector("tr")?.querySelectorAll("th, td") ?? [];
+        return { kind: "table", header: Array.from(header, (cell) => cell.textContent?.trim() ?? ""), ...where };
+      }
+      return { kind: "formula", latex: el.getAttribute("data-latex") ?? "", ...where };
+    });
+    return locateCutOffs(this.source, this.headings, blocks);
+  }
+
   /** Formulas MathJax couldn't read. They show their source as red text, often too wide to fit. */
   formulaErrors(): number {
     return this.view.querySelectorAll("mjx-merror").length;
@@ -150,18 +172,27 @@ function overrideFontSize() {
   };
 }
 
-/** Counts formulas and tables running past the column edge, which get cut off on paper. */
-function countOverflowing(view: HTMLElement): number {
+/** Blocks that can't wrap, so they get cut off on paper when wider than their column. */
+const WIDE_BLOCKS = "table, mjx-math";
+
+/**
+ * Formulas and tables running past the column edge, which get cut off on paper. A formula
+ * in a cut-off table is left out, since it's part of that table's problem.
+ */
+function cutOffElements(view: HTMLElement): Set<Element> {
   const edge = view.getBoundingClientRect().right;
-  return Array.from(view.querySelectorAll("table, mjx-math")).filter(
-    (el) => el.getBoundingClientRect().right > edge + 0.5,
-  ).length;
+  const wide = new Set(
+    Array.from(view.querySelectorAll(WIDE_BLOCKS)).filter((el) => el.getBoundingClientRect().right > edge + 0.5),
+  );
+  for (const el of wide) {
+    const table = el.parentElement?.closest("table");
+    if (table && wide.has(table)) wide.delete(el);
+  }
+  return wide;
 }
 
-async function readBody(app: App, file: TFile): Promise<string> {
-  const text = await app.vault.cachedRead(file);
-  const end = app.metadataCache.getFileCache(file)?.frontmatterPosition?.end.offset;
-  return end === undefined ? text : text.slice(end);
+function countOverflowing(view: HTMLElement): number {
+  return cutOffElements(view).size;
 }
 
 /** Math, embeds and diagrams finish after render() resolves: wait for the DOM to go quiet. */
