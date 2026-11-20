@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { PDFDocument } from "@cantoo/pdf-lib";
-import { capacity, columnSlot, computeGeometry } from "../src/geometry.ts";
+import { capacity, columnSlot, computeGeometry, dividerPositions } from "../src/geometry.ts";
 import { impose } from "../src/impose.ts";
 
 const close = (actual: number, expected: number) =>
@@ -92,4 +92,25 @@ test("impose produces Letter sides for Letter paper", async () => {
   const out = await PDFDocument.load((await impose(await doc.save(), g)).pdf);
   assert.ok(Math.abs(out.getPage(0).getWidth() - 792) < 0.01);
   assert.ok(Math.abs(out.getPage(0).getHeight() - 612) < 0.01);
+});
+
+test("dividers sit in the middle of each gap between filled columns", () => {
+  const g = computeGeometry(landscape4);
+  const positions = dividerPositions(g, 4);
+  assert.equal(positions.length, 3);
+  [76.25, 148.5, 220.75].forEach((x, i) => close(positions[i], x));
+  assert.equal(dividerPositions(g, 2).length, 1, "a part-filled side only divides its filled columns");
+  assert.equal(dividerPositions(g, 1).length, 0);
+  assert.equal(dividerPositions(g, 9).length, 3, "a side never holds more than its columns");
+});
+
+test("impose with dividers still makes one page per side", async () => {
+  const g = computeGeometry(landscape4);
+  const doc = await PDFDocument.create();
+  for (let i = 0; i < 6; i++) doc.addPage([595, 1684]).drawRectangle({ width: 10, height: 10 });
+  const plain = await impose(await doc.save(), g);
+  const divided = await impose(await doc.save(), g, { dividers: true });
+  assert.equal(divided.sides, 2);
+  assert.equal((await PDFDocument.load(divided.pdf)).getPageCount(), 2);
+  assert.ok(divided.pdf.length > plain.pdf.length, "the lines add drawing operations");
 });

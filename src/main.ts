@@ -63,7 +63,7 @@ export default class CheatsheetExporter extends Plugin {
       progress = new Notice("Exporting cheatsheet...", 0);
 
       const printed = await (await pendingNote).print(geometry, settings);
-      const sheet = await impose(printed.pdf, geometry);
+      const sheet = await impose(printed.pdf, geometry, { dividers: settings.dividers });
       await writePdf(this.app, path, sheet.pdf);
 
       new Notice(describeExport(geometry, settings, sheet, printed.overflowing), NOTICE_MS);

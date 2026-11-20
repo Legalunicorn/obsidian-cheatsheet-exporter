@@ -25,7 +25,7 @@ import { themeIsDarkOnly } from "./theme.ts";
 /** Measuring a long note takes a while, so wait for a pause in typing. */
 const MEASURE_DELAY_MS = 300;
 
-type ToggleKey = "compact" | "printBackground" | "greyscale";
+type ToggleKey = "compact" | "printBackground" | "greyscale" | "dividers";
 type NumberKey = "printedFontPt" | "marginMm";
 
 interface Fit {
@@ -147,6 +147,9 @@ export class ExportModal extends Modal {
       description: "Print every colour as a shade of grey. Coloured text is darkened to stay readable.",
       recommendation: "Recommended: off.",
     });
+    this.addToggle(advanced, "dividers", "Column dividers", {
+      description: "Draw a thin grey line between columns.",
+    });
 
     if (themeIsDarkOnly()) {
       this.contentEl.createDiv({
@@ -213,10 +216,11 @@ export class ExportModal extends Modal {
     parent: HTMLElement,
     key: ToggleKey,
     name: string,
-    { description, recommendation }: { description: string; recommendation: string },
+    { description, recommendation }: { description: string; recommendation?: string },
   ) {
     const desc = createFragment((fragment) => {
       fragment.appendText(description);
+      if (!recommendation) return;
       fragment.createEl("br");
       fragment.createEl("strong", { text: recommendation });
     });
