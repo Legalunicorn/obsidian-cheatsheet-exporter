@@ -123,6 +123,15 @@ test("a formula in a fenced code block is skipped, including fences inside callo
   assert.equal(lineOf(`> [!example]\n> ~~~\n> $${longFormula}$\n> ~~~\n$$${longFormula}$$`), 5);
 });
 
+test("a code fence opened on a list item's line is recognised, and doesn't hide the rest", () => {
+  assert.equal(lineOf(`- \`\`\`latex\n  $$${longFormula}$$\n  \`\`\`\n\n$$${longFormula}$$`), 5);
+  assert.equal(lineOf(`1. ~~~\n   $${longFormula}$\n   ~~~\n> - \`\`\`\n>   x\n>   \`\`\`\n\n$$${longFormula}$$`), 8);
+});
+
+test("a line starting with emphasis isn't mistaken for a list item", () => {
+  assert.equal(lineOf(`*note* \`\`\`not a fence\n$$${longFormula}$$`), 2);
+});
+
 test("a formula in an Obsidian or HTML comment is skipped", () => {
   assert.equal(lineOf(`%% $${longFormula}$ %%\n<!-- $${longFormula}$ -->\n$$${longFormula}$$`), 3);
 });

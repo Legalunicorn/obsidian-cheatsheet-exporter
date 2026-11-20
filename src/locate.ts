@@ -31,8 +31,12 @@ const PREVIEW_CHARS = 40;
 /** A table's delimiter row, like `|---|:--:|`, possibly inside a callout or quote. */
 const DELIMITER_ROW = /^(\s*>)*\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/;
 
-/** The ">" markers and indentation before a line's content in a callout, quote or list. */
-const LINE_PREFIX = /^\s*(>\s*)*/;
+/**
+ * What comes before a line's content in callouts, quotes and lists: indentation, ">" and
+ * list markers like "-", "*", "+", "1." or "1)". A marker needs a space after it, so
+ * "*emphasis*" isn't one.
+ */
+const LINE_PREFIX = /^(?:\s*(?:>|[-*+](?=\s)|\d{1,9}[.)](?=\s)))*\s*/;
 const FENCE = /^(`{3,}|~{3,})/;
 
 /**
