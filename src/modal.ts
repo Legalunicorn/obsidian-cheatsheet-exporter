@@ -17,7 +17,7 @@ import {
   type Layout,
   type Measure,
 } from "./recommend.ts";
-import type { CutOff } from "./locate.ts";
+import type { CutOff } from "./cutoff.ts";
 import { discard, type RenderedNote } from "./render.ts";
 import type { ExportSettings } from "./settings.ts";
 import { themeIsDarkOnly } from "./theme.ts";
@@ -293,18 +293,17 @@ export class ExportModal extends Modal {
     if (item && cutOffs.length > 0) this.showCutOffs(item, cutOffs);
   }
 
-  /** A collapsed list of where each cut-off formula or table is, by line and closest heading. */
+  /** A collapsed list of each cut-off formula or table, by closest heading and the start of it. */
   private showCutOffs(parent: HTMLElement, cutOffs: CutOff[]) {
     const details = parent.createEl("details", { cls: "cheatsheet-cutoffs" });
     details.open = this.showingCutOffs;
     details.addEventListener("toggle", () => (this.showingCutOffs = details.open));
     details.createEl("summary", { text: "Show where" });
     const list = details.createEl("ul");
-    for (const { embed, line, heading, preview } of cutOffs) {
+    for (const { embed, heading, preview } of cutOffs) {
       const item = list.createEl("li");
-      const place = embed !== null ? `In embedded note "${embed}"` : line === null ? "Line not found" : `Line ${line}`;
-      const where = [place, heading].filter(Boolean).join(" · ");
-      item.createSpan({ text: `${where}: ` });
+      const where = [embed === null ? "" : `In embedded note "${embed}"`, heading ?? ""].filter(Boolean).join(" · ");
+      if (where) item.createSpan({ text: `${where}: ` });
       item.createEl("code", { text: preview });
     }
   }

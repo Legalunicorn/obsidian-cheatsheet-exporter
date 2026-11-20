@@ -31,7 +31,7 @@ Print at **actual size**, not "fit to page", on the paper you picked, or the fon
 The plugin warns you but never changes your content to make it fit:
 
 - A note too long for one sheet, or one side when single-sided, still exports in full, and the notice says how many sides it needs.
-- Formulas or tables wider than their column get cut off on paper, and the dialog and notice say how many. Open **Show where** under the warning to see the line and closest heading of each one. **Use fewer columns or a smaller font**, or rewrite the few that don't fit.
+- Formulas or tables wider than their column get cut off on paper, and the dialog and notice say how many. Open **Show where** under the warning to see the closest heading and the start of each one. **Use fewer columns or a smaller font**, or rewrite the few that don't fit.
 - **Force compact spacing**, on by default under **Advanced options**, removes the margins and padding your theme adds, which often saves a lot of space, depending on your Obsidian theme and custom styling.
 
 ## Tips
