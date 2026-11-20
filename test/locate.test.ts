@@ -140,6 +140,21 @@ test("indented text that belongs to a list or paragraph isn't code", () => {
   assert.equal(lineOf(`Paragraph\n    $$${longFormula}$$`), 2);
 });
 
+test("indented code inside a callout is skipped, but list items in a callout aren't code", () => {
+  assert.equal(lineOf(`> [!note]\n>\n>     $$${longFormula}$$\n\n$$${longFormula}$$`), 5);
+  assert.equal(lineOf(`> - item\n>\n>     $$${longFormula}$$`), 3);
+});
+
+test("only rows with matching pipe-separated columns count as a table", () => {
+  const find = (text: string) => locateCutOffs(text, [], [table(["x", "y"], true)])[0].line;
+  // A Setext heading containing a pipe, then a table.
+  assert.equal(find("CPU | GPU\n---\n\n| x | y |\n|---|---|"), 4);
+  // Three header cells over two delimiter cells isn't a table in Obsidian.
+  assert.equal(find("a | b | c\n|---|---|\n\n| x | y |\n|---|---|"), 4);
+  // A one-column table still works.
+  assert.equal(find("| x |\n| --- |"), 1);
+});
+
 test("a line starting with emphasis isn't mistaken for a list item", () => {
   assert.equal(lineOf(`*note* \`\`\`not a fence\n$$${longFormula}$$`), 2);
 });

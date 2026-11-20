@@ -28,8 +28,9 @@ export interface CutOff {
 
 const PREVIEW_CHARS = 40;
 
-/** A table's delimiter row, like `|---|:--:|`, possibly inside a callout or quote. */
-const DELIMITER_ROW = /^(\s*>)*\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/;
+/** The ">" markers of callouts and quotes, each with up to one space after it. */
+const QUOTE_PREFIX = /^(?: {0,3}> ?)*/;
+const DELIMITER_CELL = /^\s*:?-+:?\s*$/;
 
 /**
  * What comes before a line's content in callouts, quotes and lists: indentation, ">" and
@@ -82,6 +83,28 @@ function preview(block: Block): string {
   const text =
     block.kind === "formula" ? block.latex.replace(/\s+/g, " ").trim() : `Table: ${block.header.join(", ")}`;
   return text.length > PREVIEW_CHARS ? `${text.slice(0, PREVIEW_CHARS - 1).trimEnd()}…` : text;
+}
+
+/**
+ * Whether two lines open a table: a header row and a delimiter row like `|---|:-:|`, with
+ * the same number of pipe-separated cells. A row without a pipe, like a Setext heading's
+ * "---", isn't a table row.
+ */
+function startsTable(header: string, delimiter: string): boolean {
+  const headerCells = cells(header);
+  const delimiterCells = cells(delimiter);
+  if (!headerCells || !delimiterCells) return false;
+  return headerCells.length === delimiterCells.length && delimiterCells.every((cell) => DELIMITER_CELL.test(cell));
+}
+
+/** A table row's cells, or null when the line has no pipe. Escaped pipes don't split cells. */
+function cells(row: string): string[] | null {
+  const content = row.replace(QUOTE_PREFIX, "").trim();
+  if (!content.includes("|")) return null;
+  return content
+    .replace(/^\|/, "")
+    .replace(/(?<!\\)\|$/, "")
+    .split(/(?<!\\)\|/);
 }
 
 /** Leading indentation in columns, with tabs stopping every 4. */
@@ -180,7 +203,7 @@ class SourceText {
   findTable(from: number): number | null {
     for (let line = this.lineOf(from); line + 1 < this.lines.length; line++) {
       if (this.lineStarts[line] < from || this.hidden[this.lineStarts[line]]) continue;
-      if (this.lines[line].includes("|") && DELIMITER_ROW.test(this.lines[line + 1])) return this.lineStarts[line];
+      if (startsTable(this.lines[line], this.lines[line + 1])) return this.lineStarts[line];
     }
     return null;
   }
@@ -219,19 +242,21 @@ class SourceText {
 
     // Indented code blocks: 4 spaces or a tab after a blank line. In a list the same
     // indentation continues the list item instead, so those are left alone.
+    // Inside a callout or quote, indentation counts from after the ">".
     let inBlock = false;
     let afterBlank = true;
     let previous = "";
     this.lines.forEach((line, i) => {
       const start = this.lineStarts[i];
       if (start < bodyStart) return;
-      if (!line.trim()) {
+      const content = line.replace(QUOTE_PREFIX, "");
+      if (!content.trim()) {
         afterBlank = true;
         return;
       }
-      const isCode = !hidden[start] && indentWidth(line) >= 4 && (inBlock || (afterBlank && !inList(previous)));
+      const isCode = !hidden[start] && indentWidth(content) >= 4 && (inBlock || (afterBlank && !inList(previous)));
       if (isCode) hidden.fill(1, start, start + line.length + 1);
-      else previous = line;
+      else previous = content;
       inBlock = isCode;
       afterBlank = false;
     });
