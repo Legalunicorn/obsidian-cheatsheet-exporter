@@ -128,6 +128,18 @@ test("a code fence opened on a list item's line is recognised, and doesn't hide 
   assert.equal(lineOf(`1. ~~~\n   $${longFormula}$\n   ~~~\n> - \`\`\`\n>   x\n>   \`\`\`\n\n$$${longFormula}$$`), 8);
 });
 
+test("indented code blocks are skipped", () => {
+  assert.equal(lineOf(`Intro\n\n    $$${longFormula}$$\n\n$$${longFormula}$$`), 5);
+  const text = "Text\n\n\t| x | y |\n\t|---|---|\n\n| x | y |\n|---|---|";
+  assert.equal(locateCutOffs(text, [], [table(["x", "y"], true)])[0].line, 6);
+});
+
+test("indented text that belongs to a list or paragraph isn't code", () => {
+  assert.equal(lineOf(`- item\n\n    $$${longFormula}$$`), 3);
+  assert.equal(lineOf(`1. item\n   more\n\n    $$${longFormula}$$`), 4);
+  assert.equal(lineOf(`Paragraph\n    $$${longFormula}$$`), 2);
+});
+
 test("a line starting with emphasis isn't mistaken for a list item", () => {
   assert.equal(lineOf(`*note* \`\`\`not a fence\n$$${longFormula}$$`), 2);
 });

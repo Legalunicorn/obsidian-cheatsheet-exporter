@@ -84,6 +84,22 @@ function preview(block: Block): string {
   return text.length > PREVIEW_CHARS ? `${text.slice(0, PREVIEW_CHARS - 1).trimEnd()}…` : text;
 }
 
+/** Leading indentation in columns, with tabs stopping every 4. */
+function indentWidth(line: string): number {
+  let width = 0;
+  for (const char of line) {
+    if (char === " ") width++;
+    else if (char === "\t") width += 4 - (width % 4);
+    else break;
+  }
+  return width;
+}
+
+/** Whether a line is a list item or indented under one, so indented lines after it continue the list. */
+function inList(line: string): boolean {
+  return indentWidth(line) > 0 || /^([-*+]|\d{1,9}[.)])\s/.test(line);
+}
+
 /**
  * Where inline code or a comment starting at `i` ends, or `i` when none starts there.
  * Inline code needs a closing run of as many backticks in the same paragraph, so a stray
@@ -199,6 +215,25 @@ class SourceText {
       else if (marker?.[0] === fence[0] && marker.length >= fence.length && !content.slice(marker.length).trim()) {
         fence = null;
       }
+    });
+
+    // Indented code blocks: 4 spaces or a tab after a blank line. In a list the same
+    // indentation continues the list item instead, so those are left alone.
+    let inBlock = false;
+    let afterBlank = true;
+    let previous = "";
+    this.lines.forEach((line, i) => {
+      const start = this.lineStarts[i];
+      if (start < bodyStart) return;
+      if (!line.trim()) {
+        afterBlank = true;
+        return;
+      }
+      const isCode = !hidden[start] && indentWidth(line) >= 4 && (inBlock || (afterBlank && !inList(previous)));
+      if (isCode) hidden.fill(1, start, start + line.length + 1);
+      else previous = line;
+      inBlock = isCode;
+      afterBlank = false;
     });
 
     // Inline code and comments, outside code blocks.
