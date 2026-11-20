@@ -4,10 +4,7 @@ Export your Obsidian note as a dense, double-sided A4 cheat sheet PDF for exams,
 
 Your theme, LaTeX, images and tables are kept, and nothing else needs to be installed.
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Legalunicorn/obsidian-cheatsheet-exporter/main/docs/banner-dark.png">
-  <img alt="An Obsidian note exported as a two-page cheat sheet" src="https://raw.githubusercontent.com/Legalunicorn/obsidian-cheatsheet-exporter/main/docs/banner-light.png">
-</picture>
+![An Obsidian note exported as a two-page cheat sheet](docs/banner-dark.png)
 
 ## [Short Demo](https://youtu.be/6KE7icNV5ho)
 
