@@ -12,6 +12,7 @@ export interface ExportSettings {
   compact: boolean;
   printBackground: boolean;
   greyscale: boolean;
+  dividers: boolean;
 }
 
 export const DEFAULT_SETTINGS: ExportSettings = {
@@ -24,6 +25,7 @@ export const DEFAULT_SETTINGS: ExportSettings = {
   compact: true,
   printBackground: false,
   greyscale: false,
+  dividers: false,
 };
 
 /** Fills in defaults for anything the saved settings lack. */

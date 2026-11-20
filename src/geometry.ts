@@ -80,6 +80,12 @@ export function columnSlot(g: Geometry, index: number) {
   };
 }
 
+/** Where lines between columns go on a side holding `strips` strips: the middle of each gap between filled columns. */
+export function dividerPositions(g: Geometry, strips: number): number[] {
+  const gaps = Math.max(0, Math.min(strips, g.columns) - 1);
+  return Array.from({ length: gaps }, (_, i) => g.marginMm + (i + 1) * g.columnWidth + i * g.gapMm + g.gapMm / 2);
+}
+
 /** How many strips fit on one sheet of paper, printed on one side or both. */
 export function capacity(g: Geometry): number {
   return g.sides * g.columns;
